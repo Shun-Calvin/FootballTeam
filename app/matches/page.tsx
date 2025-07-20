@@ -22,7 +22,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Plus, Calendar, MapPin, Users, Video, Edit, Trash } from "lucide-react"
-import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface Match {
@@ -47,6 +46,7 @@ interface MatchParticipant {
   status: string
   is_key_player: boolean
   profiles: {
+    id: string
     full_name: string
     jersey_number: number | null
   }
@@ -70,7 +70,7 @@ export default function MatchesPage() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [selectedMatch, setSelectedMatch] = useState<Match & { video_links: string[] } | null>(null)
-  const [matchEvents, setMatchEvents] = useState<MatchEvent[]>([])
+  const [matchEvents, setMatchEvents] = useState<Partial<MatchEvent>[]>([])
   const [editableParticipants, setEditableParticipants] = useState<MatchParticipant[]>([])
   const [newMatch, setNewMatch] = useState({
     opponent_team: "",
@@ -92,18 +92,20 @@ export default function MatchesPage() {
       if (matchesData) {
         setMatches(matchesData)
 
-        // Fetch participants for each match
         const participantsData: { [key: string]: MatchParticipant[] } = {}
         for (const match of matchesData) {
           const { data } = await supabase
             .from("match_participants")
-            .select(`
+            .select(
+              `
               *,
               profiles (
+                id,
                 full_name,
                 jersey_number
               )
-            `)
+            `
+            )
             .eq("match_id", match.id)
 
           participantsData[match.id] = data || []
@@ -132,7 +134,6 @@ export default function MatchesPage() {
 
       if (error) throw error
 
-      // Add current user as participant
       await supabase.from("match_participants").insert({
         match_id: data.id,
         player_id: profile?.id,
@@ -156,11 +157,11 @@ export default function MatchesPage() {
 
   const handleParticipationResponse = async (matchId: string, status: "accepted" | "declined") => {
     try {
-      const { error } = await supabase.from("match_participants").upsert({
-        match_id: matchId,
-        player_id: profile?.id,
-        status,
-      })
+      const { error } = await supabase
+        .from("match_participants")
+        .update({ status })
+        .eq("match_id", matchId)
+        .eq("player_id", profile?.id)
 
       if (error) throw error
       fetchMatches()
@@ -179,30 +180,34 @@ export default function MatchesPage() {
     if (!selectedMatch) return
 
     try {
-      const { error } = await supabase
+      const { error: matchError } = await supabase
         .from("matches")
         .update({
           opponent_team: selectedMatch.opponent_team,
           location: selectedMatch.location,
           final_score_home: selectedMatch.final_score_home,
           final_score_away: selectedMatch.final_score_away,
-          video_link: selectedMatch.video_links.join(','),
+          video_link: selectedMatch.video_links.filter(Boolean).join(","),
         })
         .eq("id", selectedMatch.id)
 
-      if (error) throw error
+      if (matchError) throw matchError
 
-      // Update match events
       for (const event of matchEvents) {
-        await supabase.from("match_events").upsert({ ...event, match_id: selectedMatch.id })
+        const payload = { ...event, match_id: selectedMatch.id }
+        if (!payload.id) {
+          delete (payload as { id?: string }).id
+        }
+        const { error: eventError } = await supabase.from("match_events").upsert(payload)
+        if (eventError) throw eventError
       }
-      
-      // Update participant statuses
+
       for (const participant of editableParticipants) {
-        await supabase
+        const { error: participantError } = await supabase
           .from("match_participants")
           .update({ status: participant.status })
           .eq("id", participant.id)
+        if (participantError) throw participantError
       }
 
       setEditDialogOpen(false)
@@ -211,32 +216,56 @@ export default function MatchesPage() {
       console.error("Error updating match:", error)
     }
   }
-  
-  const handleDeleteEvent = async (eventId: string) => {
-    try {
-      await supabase.from("match_events").delete().eq("id", eventId)
-      setMatchEvents(matchEvents.filter((e) => e.id !== eventId))
-    } catch (error) {
-      console.error("Error deleting event:", error)
+
+  const handleDeleteEvent = async (eventId: string | undefined, index: number) => {
+    if (eventId) {
+      try {
+        await supabase.from("match_events").delete().eq("id", eventId)
+      } catch (error) {
+        console.error("Error deleting event:", error)
+        return
+      }
     }
+    setMatchEvents(matchEvents.filter((_, i) => i !== index))
   }
-  
+
   const handleDeleteMatch = async (matchId: string) => {
-    try {
-      await supabase.from("matches").delete().eq("id", matchId)
-      fetchMatches()
-    } catch (error) {
-      console.error("Error deleting match:", error)
+    if (window.confirm("Are you sure you want to delete this match?")) {
+      try {
+        await supabase.from("matches").delete().eq("id", matchId)
+        fetchMatches()
+      } catch (error) {
+        console.error("Error deleting match:", error)
+      }
     }
   }
 
   const openEditDialog = async (match: Match) => {
-    setSelectedMatch({ ...match, video_links: match.video_link?.split(',') || [""] });
+    setSelectedMatch({ ...match, video_links: match.video_link?.split(",") || [""] })
     const { data: eventsData } = await supabase.from("match_events").select("*").eq("match_id", match.id)
-    const { data: participantsData } = await supabase.from("match_participants").select("*, profiles (full_name)").eq("match_id", match.id)
+    const { data: participantsData } = await supabase
+      .from("match_participants")
+      .select("*, profiles (id, full_name)")
+      .eq("match_id", match.id)
     setMatchEvents(eventsData || [])
     setEditableParticipants(participantsData || [])
     setEditDialogOpen(true)
+  }
+
+  const handleVideoLinkChange = (index: number, value: string) => {
+    if (!selectedMatch) return
+    const newLinks = [...selectedMatch.video_links]
+    newLinks[index] = value
+    setSelectedMatch({ ...selectedMatch, video_links: newLinks })
+  }
+  const addVideoLink = () => {
+    if (!selectedMatch) return
+    setSelectedMatch({ ...selectedMatch, video_links: [...selectedMatch.video_links, ""] })
+  }
+  const removeVideoLink = (index: number) => {
+    if (!selectedMatch) return
+    const newLinks = selectedMatch.video_links.filter((_, i) => i !== index)
+    setSelectedMatch({ ...selectedMatch, video_links: newLinks })
   }
 
   if (loading) {
@@ -280,54 +309,26 @@ export default function MatchesPage() {
               <form onSubmit={handleCreateMatch} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="opponent">{t("opponentTeam")}</Label>
-                  <Input
-                    id="opponent"
-                    value={newMatch.opponent_team}
-                    onChange={(e) => setNewMatch({ ...newMatch, opponent_team: e.target.value })}
-                    required
-                  />
+                  <Input id="opponent" value={newMatch.opponent_team} onChange={(e) => setNewMatch({ ...newMatch, opponent_team: e.target.value })} required />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="date">{t("matchDate")}</Label>
-                  <Input
-                    id="date"
-                    type="datetime-local"
-                    value={newMatch.match_date}
-                    onChange={(e) => setNewMatch({ ...newMatch, match_date: e.target.value })}
-                    required
-                  />
+                  <Input id="date" type="datetime-local" value={newMatch.match_date} onChange={(e) => setNewMatch({ ...newMatch, match_date: e.target.value })} required />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="location">{t("location")}</Label>
-                  <Input
-                    id="location"
-                    value={newMatch.location}
-                    onChange={(e) => setNewMatch({ ...newMatch, location: e.target.value })}
-                    required
-                  />
+                  <Input id="location" value={newMatch.location} onChange={(e) => setNewMatch({ ...newMatch, location: e.target.value })} required />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="home-jersey">{t("homeJerseyColor")}</Label>
-                  <Input
-                    id="home-jersey"
-                    value={newMatch.home_jersey_color}
-                    onChange={(e) => setNewMatch({ ...newMatch, home_jersey_color: e.target.value })}
-                  />
+                  <Input id="home-jersey" value={newMatch.home_jersey_color} onChange={(e) => setNewMatch({ ...newMatch, home_jersey_color: e.target.value })} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="away-jersey">{t("awayJerseyColor")}</Label>
-                  <Input
-                    id="away-jersey"
-                    value={newMatch.away_jersey_color}
-                    onChange={(e) => setNewMatch({ ...newMatch, away_jersey_color: e.target.value })}
-                  />
+                  <Input id="away-jersey" value={newMatch.away_jersey_color} onChange={(e) => setNewMatch({ ...newMatch, away_jersey_color: e.target.value })} />
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Switch
-                    id="home-game"
-                    checked={newMatch.is_home_game}
-                    onCheckedChange={(checked) => setNewMatch({ ...newMatch, is_home_game: checked })}
-                  />
+                  <Switch id="home-game" checked={newMatch.is_home_game} onCheckedChange={(checked) => setNewMatch({ ...newMatch, is_home_game: checked })} />
                   <Label htmlFor="home-game">{t("isHomeGame")}</Label>
                 </div>
                 <div className="flex justify-end space-x-2">
@@ -377,7 +378,6 @@ export default function MatchesPage() {
                           </span>
                         </CardDescription>
                       </div>
-
                       {match.status === "completed" && (
                         <div className="text-right">
                           <div className="text-2xl font-bold">
@@ -388,7 +388,6 @@ export default function MatchesPage() {
                       )}
                     </div>
                   </CardHeader>
-
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
@@ -398,7 +397,6 @@ export default function MatchesPage() {
                           <div>Away: {match.away_jersey_color || "Not specified"}</div>
                         </div>
                       </div>
-
                       <div>
                         <h4 className="font-semibold mb-2 flex items-center">
                           <Users className="h-4 w-4 mr-1" />
@@ -408,26 +406,14 @@ export default function MatchesPage() {
                           {participantList.slice(0, 3).map((participant) => (
                             <div key={participant.id} className="flex items-center justify-between">
                               <span>{participant.profiles.full_name}</span>
-                              <Badge
-                                variant={
-                                  participant.status === "accepted"
-                                    ? "default"
-                                    : participant.status === "declined"
-                                      ? "destructive"
-                                      : "secondary"
-                                }
-                                className="text-xs"
-                              >
+                              <Badge variant={participant.status === "accepted" ? "default" : participant.status === "declined" ? "destructive" : "secondary"} className="text-xs">
                                 {participant.status}
                               </Badge>
                             </div>
                           ))}
-                          {participantList.length > 3 && (
-                            <div className="text-gray-500">+{participantList.length - 3} more</div>
-                          )}
+                          {participantList.length > 3 && <div className="text-gray-500">+{participantList.length - 3} more</div>}
                         </div>
                       </div>
-
                       <div>
                         <h4 className="font-semibold mb-2">{t("keyPlayers")}</h4>
                         <div className="space-y-1 text-sm">
@@ -437,64 +423,44 @@ export default function MatchesPage() {
                             keyPlayers.map((player) => (
                               <div key={player.id}>
                                 {player.profiles.full_name}
-                                {player.profiles.jersey_number && (
-                                  <span className="text-gray-500"> #{player.profiles.jersey_number}</span>
-                                )}
+                                {player.profiles.jersey_number && <span className="text-gray-500"> #{player.profiles.jersey_number}</span>}
                               </div>
                             ))
                           )}
                         </div>
                       </div>
                     </div>
-
                     {match.video_link && (
                       <div>
                         <h4 className="font-semibold mb-2 flex items-center">
                           <Video className="h-4 w-4 mr-1" />
                           Match Video
                         </h4>
-                        <a
-                          href={match.video_link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline text-sm"
-                        >
-                          Watch Match Recording
-                        </a>
+                        {match.video_link.split(',').map((link, index) => (
+                          <a key={index} href={link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-sm block">
+                            Watch Match Recording {index + 1}
+                          </a>
+                        ))}
                       </div>
                     )}
-
                     <div className="flex justify-between items-center pt-4 border-t">
                       <div className="flex items-center space-x-2">
                         <span className="text-sm text-gray-600">Your status:</span>
-                        <Badge
-                          variant={
-                            userStatus === "accepted"
-                              ? "default"
-                              : userStatus === "declined"
-                                ? "destructive"
-                                : "secondary"
-                          }
-                        >
+                        <Badge variant={userStatus === "accepted" ? "default" : userStatus === "declined" ? "destructive" : "secondary"}>
                           {t(userStatus as any)}
                         </Badge>
                       </div>
-
                       {userStatus === "pending" && (
                         <div className="space-x-2">
                           <Button size="sm" onClick={() => handleParticipationResponse(match.id, "accepted")}>
                             {t("accept")}
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleParticipationResponse(match.id, "declined")}
-                          >
+                          <Button size="sm" variant="outline" onClick={() => handleParticipationResponse(match.id, "declined")}>
                             {t("decline")}
                           </Button>
                         </div>
                       )}
-                       <div className="space-x-2">
+                      <div className="space-x-2">
                         <Button size="sm" variant="outline" onClick={() => openEditDialog(match)}>
                           <Edit className="h-4 w-4 mr-2" />
                           Edit
@@ -514,112 +480,56 @@ export default function MatchesPage() {
       </div>
       {selectedMatch && (
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-          <DialogContent className="sm:max-w-[600px]">
+          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit Match</DialogTitle>
               <DialogDescription>Edit details for the match against {selectedMatch.opponent_team}</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleEditMatch} className="space-y-4">
-               <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="opponent-team">Opponent Team</Label>
-                  <Input
-                    id="opponent-team"
-                    value={selectedMatch.opponent_team}
-                    onChange={(e) =>
-                      setSelectedMatch({ ...selectedMatch, opponent_team: e.target.value })
-                    }
-                  />
+                  <Input id="opponent-team" value={selectedMatch.opponent_team} onChange={(e) => setSelectedMatch({ ...selectedMatch, opponent_team: e.target.value })} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="location">Location</Label>
-                  <Input
-                    id="location"
-                    value={selectedMatch.location}
-                    onChange={(e) =>
-                      setSelectedMatch({ ...selectedMatch, location: e.target.value })
-                    }
-                  />
+                  <Input id="location" value={selectedMatch.location} onChange={(e) => setSelectedMatch({ ...selectedMatch, location: e.target.value })} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="score-home">Home Score</Label>
-                  <Input
-                    id="score-home"
-                    type="number"
-                    value={selectedMatch.final_score_home || ""}
-                    onChange={(e) =>
-                      setSelectedMatch({ ...selectedMatch, final_score_home: parseInt(e.target.value) })
-                    }
-                  />
+                  <Input id="score-home" type="number" value={selectedMatch.final_score_home || ""} onChange={(e) => setSelectedMatch({ ...selectedMatch, final_score_home: parseInt(e.target.value) || null })} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="score-away">Away Score</Label>
-                  <Input
-                    id="score-away"
-                    type="number"
-                    value={selectedMatch.final_score_away || ""}
-                    onChange={(e) =>
-                      setSelectedMatch({ ...selectedMatch, final_score_away: parseInt(e.target.value) })
-                    }
-                  />
+                  <Input id="score-away" type="number" value={selectedMatch.final_score_away || ""} onChange={(e) => setSelectedMatch({ ...selectedMatch, final_score_away: parseInt(e.target.value) || null })} />
                 </div>
               </div>
-              
               <div>
                 <Label>Match Videos</Label>
                 {selectedMatch.video_links.map((link, index) => (
                   <div key={index} className="flex items-center gap-2 mb-2">
-                    <Input
-                      value={link}
-                      onChange={(e) => {
-                        const newLinks = [...selectedMatch.video_links]
-                        newLinks[index] = e.target.value
-                        setSelectedMatch({ ...selectedMatch, video_links: newLinks })
-                      }}
-                    />
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => {
-                        const newLinks = selectedMatch.video_links.filter((_, i) => i !== index)
-                        setSelectedMatch({ ...selectedMatch, video_links: newLinks })
-                      }}
-                    >
+                    <Input value={link} onChange={(e) => handleVideoLinkChange(index, e.target.value)} />
+                    <Button type="button" variant="destructive" size="sm" onClick={() => removeVideoLink(index)}>
                       <Trash className="h-4 w-4" />
                     </Button>
                   </div>
                 ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    setSelectedMatch({
-                      ...selectedMatch,
-                      video_links: [...selectedMatch.video_links, ""],
-                    })
-                  }
-                >
+                <Button type="button" variant="outline" size="sm" onClick={addVideoLink}>
                   Add Video
                 </Button>
               </div>
-
               <div>
                 <h4 className="font-semibold mb-2">Participants</h4>
                 {editableParticipants.map((p, i) => (
                   <div key={p.id} className="grid grid-cols-2 gap-2 mb-2">
                     <p>{p.profiles.full_name}</p>
-                    <Select
-                      value={p.status}
-                      onValueChange={(value) => {
-                        const newParticipants = [...editableParticipants]
-                        newParticipants[i].status = value
-                        setEditableParticipants(newParticipants)
-                      }}
-                    >
+                    <Select value={p.status} onValueChange={(value) => {
+                      const newParticipants = [...editableParticipants]
+                      newParticipants[i].status = value
+                      setEditableParticipants(newParticipants)
+                    }}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -632,19 +542,15 @@ export default function MatchesPage() {
                   </div>
                 ))}
               </div>
-
               <div>
                 <h4 className="font-semibold mb-2">Match Events</h4>
                 {matchEvents.map((event, index) => (
                   <div key={index} className="grid grid-cols-4 gap-2 mb-2">
-                    <Select
-                      value={event.event_type}
-                      onValueChange={(value) => {
-                        const newEvents = [...matchEvents]
-                        newEvents[index].event_type = value
-                        setMatchEvents(newEvents)
-                      }}
-                    >
+                    <Select value={event.event_type} onValueChange={(value) => {
+                      const newEvents = [...matchEvents]
+                      newEvents[index].event_type = value
+                      setMatchEvents(newEvents)
+                    }}>
                       <SelectTrigger>
                         <SelectValue placeholder="Event Type" />
                       </SelectTrigger>
@@ -653,14 +559,11 @@ export default function MatchesPage() {
                         <SelectItem value="Assist">Assist</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Select
-                      value={event.player_id}
-                      onValueChange={(value) => {
-                        const newEvents = [...matchEvents]
-                        newEvents[index].player_id = value
-                        setMatchEvents(newEvents)
-                      }}
-                    >
+                    <Select value={event.player_id} onValueChange={(value) => {
+                      const newEvents = [...matchEvents]
+                      newEvents[index].player_id = value
+                      setMatchEvents(newEvents)
+                    }}>
                       <SelectTrigger>
                         <SelectValue placeholder="Player" />
                       </SelectTrigger>
@@ -672,36 +575,20 @@ export default function MatchesPage() {
                         ))}
                       </SelectContent>
                     </Select>
-                    <Input
-                      placeholder="Time (mins)"
-                      type="number"
-                      value={event.event_time}
-                      onChange={(e) => {
-                        const newEvents = [...matchEvents]
-                        newEvents[index].event_time = parseInt(e.target.value)
-                        setMatchEvents(newEvents)
-                      }}
-                    />
-                    <Button type="button" variant="destructive" size="sm" onClick={() => handleDeleteEvent(event.id)}>
+                    <Input placeholder="Time (mins)" type="number" value={event.event_time || ""} onChange={(e) => {
+                      const newEvents = [...matchEvents]
+                      newEvents[index].event_time = parseInt(e.target.value)
+                      setMatchEvents(newEvents)
+                    }} />
+                    <Button type="button" variant="destructive" size="sm" onClick={() => handleDeleteEvent(event.id, index)}>
                       <Trash className="h-4 w-4" />
                     </Button>
                   </div>
                 ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    setMatchEvents([
-                      ...matchEvents,
-                      { id: "", match_id: selectedMatch.id, event_type: "", player_id: "", event_time: 0, description: "" },
-                    ])
-                  }
-                >
+                <Button type="button" variant="outline" size="sm" onClick={() => setMatchEvents([...matchEvents, { event_type: "Goal", player_id: "", event_time: 0, description: "" }])}>
                   Add Event
                 </Button>
               </div>
-
               <div className="flex justify-end space-x-2">
                 <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>
                   Cancel
@@ -714,4 +601,3 @@ export default function MatchesPage() {
       )}
     </DashboardLayout>
   )
-}
