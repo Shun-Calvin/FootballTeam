@@ -186,8 +186,8 @@ export default function ProfilePage() {
               <div className="pt-4 border-t">
                 <h3 className="font-semibold mb-2">Account Information</h3>
                 <div className="text-sm text-gray-600 space-y-1">
-                  <p>Account created: {new Date(profile?.created_at || "").toLocaleDateString()}</p>
-                  <p>Last updated: {new Date(profile?.updated_at || "").toLocaleDateString()}</p>
+                  <p>Account created: {new Date(profile?.created_at || "").toLocaleDateString("en-US", { timeZone: "Asia/Shanghai" })}</p>
+                  <p>Last updated: {new Date(profile?.updated_at || "").toLocaleDateString("en-US", { timeZone: "Asia/Shanghai" })}</p>
                 </div>
               </div>
             </CardContent>

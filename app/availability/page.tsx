@@ -22,16 +22,14 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { CalendarDays, Plus } from "lucide-react"
+import { CalendarDays, Plus, Edit, Trash } from "lucide-react"
 
 interface Availability {
   id: string
   player_id: string
   date: string
   is_available: boolean
-  event_type: string
   notes: string | null
   profiles: {
     full_name: string
@@ -45,10 +43,10 @@ export default function AvailabilityPage() {
   const [availability, setAvailability] = useState<Availability[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [editingAvailability, setEditingAvailability] = useState<Availability | null>(null)
   const [newAvailability, setNewAvailability] = useState({
     date: "",
     is_available: true,
-    event_type: "training",
     notes: "",
   })
 
@@ -76,30 +74,40 @@ export default function AvailabilityPage() {
     }
   }
 
-  const handleCreateAvailability = async (e: React.FormEvent) => {
+  const handleSaveAvailability = async (e: React.FormEvent) => {
     e.preventDefault()
 
     try {
-      const { error } = await supabase.from("availability").upsert({
+      const payload = {
         player_id: profile?.id,
-        date: newAvailability.date,
-        is_available: newAvailability.is_available,
-        event_type: newAvailability.event_type,
-        notes: newAvailability.notes || null,
-      })
+        date: editingAvailability ? editingAvailability.date : newAvailability.date,
+        is_available: editingAvailability ? editingAvailability.is_available : newAvailability.is_available,
+        notes: editingAvailability ? editingAvailability.notes : newAvailability.notes,
+      }
+
+      const { error } = await supabase.from("availability").upsert(payload)
 
       if (error) throw error
 
       setDialogOpen(false)
+      setEditingAvailability(null)
       setNewAvailability({
         date: "",
         is_available: true,
-        event_type: "training",
         notes: "",
       })
       fetchAvailability()
     } catch (error) {
-      console.error("Error creating availability:", error)
+      console.error("Error creating/updating availability:", error)
+    }
+  }
+
+  const handleDeleteAvailability = async (id: string) => {
+    try {
+      await supabase.from("availability").delete().eq("id", id)
+      fetchAvailability()
+    } catch (error) {
+      console.error("Error deleting availability:", error)
     }
   }
 
@@ -148,40 +156,35 @@ export default function AvailabilityPage() {
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
-                <DialogTitle>Set Availability</DialogTitle>
-                <DialogDescription>Set your availability for training or matches</DialogDescription>
+                <DialogTitle>{editingAvailability ? "Edit" : "Set"} Availability</DialogTitle>
+                <DialogDescription>
+                  {editingAvailability ? "Update" : "Set"} your availability for a specific date.
+                </DialogDescription>
               </DialogHeader>
-              <form onSubmit={handleCreateAvailability} className="space-y-4">
+              <form onSubmit={handleSaveAvailability} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="date">Date</Label>
                   <Input
                     id="date"
                     type="date"
-                    value={newAvailability.date}
-                    onChange={(e) => setNewAvailability({ ...newAvailability, date: e.target.value })}
+                    value={editingAvailability ? editingAvailability.date : newAvailability.date}
+                    onChange={(e) =>
+                      editingAvailability
+                        ? setEditingAvailability({ ...editingAvailability, date: e.target.value })
+                        : setNewAvailability({ ...newAvailability, date: e.target.value })
+                    }
                     required
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="event-type">Event Type</Label>
-                  <Select
-                    value={newAvailability.event_type}
-                    onValueChange={(value) => setNewAvailability({ ...newAvailability, event_type: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="training">Training</SelectItem>
-                      <SelectItem value="match">Match</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Switch
                     id="available"
-                    checked={newAvailability.is_available}
-                    onCheckedChange={(checked) => setNewAvailability({ ...newAvailability, is_available: checked })}
+                    checked={editingAvailability ? editingAvailability.is_available : newAvailability.is_available}
+                    onCheckedChange={(checked) =>
+                      editingAvailability
+                        ? setEditingAvailability({ ...editingAvailability, is_available: checked })
+                        : setNewAvailability({ ...newAvailability, is_available: checked })
+                    }
                   />
                   <Label htmlFor="available">Available</Label>
                 </div>
@@ -189,8 +192,12 @@ export default function AvailabilityPage() {
                   <Label htmlFor="notes">Notes (Optional)</Label>
                   <Textarea
                     id="notes"
-                    value={newAvailability.notes}
-                    onChange={(e) => setNewAvailability({ ...newAvailability, notes: e.target.value })}
+                    value={editingAvailability ? editingAvailability.notes || "" : newAvailability.notes}
+                    onChange={(e) =>
+                      editingAvailability
+                        ? setEditingAvailability({ ...editingAvailability, notes: e.target.value })
+                        : setNewAvailability({ ...newAvailability, notes: e.target.value })
+                    }
                     placeholder="Any additional notes..."
                   />
                 </div>
@@ -236,7 +243,7 @@ export default function AvailabilityPage() {
           {/* Selected Date Details */}
           <Card>
             <CardHeader>
-              <CardTitle>{selectedDate ? selectedDate.toLocaleDateString() : "Select a Date"}</CardTitle>
+              <CardTitle>{selectedDate ? new Date(selectedDate).toLocaleDateString() : "Select a Date"}</CardTitle>
               <CardDescription>Availability details for the selected date</CardDescription>
             </CardHeader>
             <CardContent>
@@ -251,12 +258,30 @@ export default function AvailabilityPage() {
                           <div className="flex items-center justify-between mb-2">
                             <span className="font-medium">{avail.profiles.full_name}</span>
                             <div className="flex items-center space-x-2">
-                              <Badge variant={avail.event_type === "training" ? "default" : "secondary"}>
-                                {avail.event_type}
-                              </Badge>
                               <Badge variant={avail.is_available ? "default" : "destructive"}>
                                 {avail.is_available ? "Available" : "Unavailable"}
                               </Badge>
+                              {avail.player_id === profile?.id && (
+                                <>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => {
+                                      setEditingAvailability(avail)
+                                      setDialogOpen(true)
+                                    }}
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => handleDeleteAvailability(avail.id)}
+                                  >
+                                    <Trash className="h-4 w-4" />
+                                  </Button>
+                                </>
+                              )}
                             </div>
                           </div>
                           {avail.notes && <p className="text-sm text-gray-600">{avail.notes}</p>}
@@ -289,17 +314,14 @@ export default function AvailabilityPage() {
                 return (
                   <div key={i} className="flex items-center justify-between p-3 border rounded-lg">
                     <div>
-                      <div className="font-medium">{date.toLocaleDateString()}</div>
+                      <div className="font-medium">{new Date(date).toLocaleDateString()}</div>
                       <div className="text-sm text-gray-500">
-                        {date.toLocaleDateString("en-US", { weekday: "long" })}
+                        {new Date(date).toLocaleDateString("en-US", { weekday: "long" })}
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
                       {userAvailability ? (
                         <>
-                          <Badge variant={userAvailability.event_type === "training" ? "default" : "secondary"}>
-                            {userAvailability.event_type}
-                          </Badge>
                           <Badge variant={userAvailability.is_available ? "default" : "destructive"}>
                             {userAvailability.is_available ? "Available" : "Unavailable"}
                           </Badge>

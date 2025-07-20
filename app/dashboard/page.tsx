@@ -166,8 +166,9 @@ export default function DashboardPage() {
                       <h3 className="font-semibold">vs {match.opponent_team}</h3>
                       <p className="text-sm text-gray-600">{match.location}</p>
                       <p className="text-sm text-gray-500">
-                        {new Date(match.match_date).toLocaleDateString()} at{" "}
-                        {new Date(match.match_date).toLocaleTimeString([], {
+                        {new Date(match.match_date).toLocaleDateString("en-US", { timeZone: "Asia/Shanghai" })} at{" "}
+                        {new Date(match.match_date).toLocaleTimeString("en-US", {
+                          timeZone: "Asia/Shanghai",
                           hour: "2-digit",
                           minute: "2-digit",
                         })}

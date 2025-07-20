@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { useLanguage } from "@/contexts/language-context"
 import { Button } from "@/components/ui/button"
@@ -26,9 +26,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname()
   const { signOut, profile } = useAuth()
   const { language, setLanguage, t } = useLanguage()
+  const router = useRouter()
 
   const handleSignOut = async () => {
     await signOut()
+    router.push("/login")
   }
 
   const Sidebar = ({ mobile = false }: { mobile?: boolean }) => (
