@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { useLanguage } from "@/contexts/language-context"
@@ -36,9 +36,15 @@ export default function LoginPage() {
   const [createError, setCreateError] = useState("")
   const [createSuccess, setCreateSuccess] = useState(false)
 
-  const { signIn, createUser } = useAuth()
+  const { signIn, createUser, user, loading: authLoading } = useAuth()
   const { language, setLanguage, t } = useLanguage()
   const router = useRouter()
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.push("/dashboard")
+    }
+  }, [user, authLoading, router])
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -49,11 +55,9 @@ export default function LoginPage() {
 
     if (error) {
       setError(error.message)
-    } else {
-      router.push("/dashboard")
-    }
-
-    setLoading(false)
+      setLoading(false)
+    } 
+    // The useEffect will handle the redirect on successful sign-in
   }
 
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -100,7 +104,6 @@ export default function LoginPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="en">{t("english")}</SelectItem>
-              <SelectItem value="zh">{t("simplifiedChinese")}</SelectItem>
               <SelectItem value="zh-TW">{t("traditionalChinese")}</SelectItem>
             </SelectContent>
           </Select>

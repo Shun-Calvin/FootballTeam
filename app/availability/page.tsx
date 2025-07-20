@@ -36,12 +36,11 @@ interface Availability {
   }
 }
 
-// Helper function to format a Date object to 'YYYY-MM-DD' string without timezone conversion
+// Helper function to format a Date object to a 'YYYY-MM-DD' string in the local timezone.
 const toYYYYMMDD = (date: Date) => {
-  const d = new Date(date)
-  const year = d.getFullYear()
-  const month = (d.getMonth() + 1).toString().padStart(2, "0")
-  const day = d.getDate().toString().padStart(2, "0")
+  const year = date.getFullYear()
+  const month = (date.getMonth() + 1).toString().padStart(2, "0")
+  const day = date.getDate().toString().padStart(2, "0")
   return `${year}-${month}-${day}`
 }
 
@@ -64,15 +63,18 @@ export default function AvailabilityPage() {
   }, [])
 
   const fetchAvailability = async () => {
+    setLoading(true)
     try {
       const { data } = await supabase
         .from("availability")
-        .select(`
+        .select(
+          `
           *,
           profiles (
             full_name
           )
-        `)
+        `
+        )
         .order("date", { ascending: true })
 
       setAvailability(data || [])
@@ -102,7 +104,7 @@ export default function AvailabilityPage() {
             notes: newAvailability.notes,
           }
 
-      const { error } = await supabase.from("availability").upsert(payload)
+      const { error } = await supabase.from("availability").upsert(payload, { onConflict: 'player_id, date' })
 
       if (error) throw error
 
@@ -120,11 +122,13 @@ export default function AvailabilityPage() {
   }
 
   const handleDeleteAvailability = async (id: string) => {
-    try {
-      await supabase.from("availability").delete().eq("id", id)
-      fetchAvailability()
-    } catch (error) {
-      console.error("Error deleting availability:", error)
+    if (window.confirm("Are you sure you want to delete this availability entry?")) {
+      try {
+        await supabase.from("availability").delete().eq("id", id)
+        fetchAvailability()
+      } catch (error) {
+        console.error("Error deleting availability:", error)
+      }
     }
   }
 
@@ -133,17 +137,29 @@ export default function AvailabilityPage() {
     return availability.filter((a) => a.date === dateString)
   }
 
-  const getAvailabilityStatus = (date: Date) => {
-    const dateAvailability = getAvailabilityForDate(date)
-    const userAvailability = dateAvailability.find((a) => a.player_id === profile?.id)
-    return userAvailability?.is_available
-  }
+  const getTeamAvailabilityStatus = (date: Date) => {
+    const todaysAvailability = getAvailabilityForDate(date);
+    if (todaysAvailability.length === 0) {
+      return { available: false, unavailable: false };
+    }
+
+    const hasUnavailable = todaysAvailability.some(a => !a.is_available);
+    if (hasUnavailable) {
+      return { available: false, unavailable: true };
+    }
+
+    const hasAvailable = todaysAvailability.some(a => a.is_available);
+    if (hasAvailable) {
+        return { available: true, unavailable: false };
+    }
+
+    return { available: false, unavailable: false };
+  };
   
   const getDayOfWeek = (dateString: string) => {
-    const date = new Date(dateString + 'T00:00:00') // Treat as local time to avoid timezone shift
-    return date.toLocaleDateString("en-US", { weekday: "long" })
+    const date = new Date(`${dateString}T00:00:00Z`)
+    return date.toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" })
   }
-
 
   if (loading) {
     return (
@@ -167,26 +183,32 @@ export default function AvailabilityPage() {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">{t("availability")}</h1>
-            <p className="text-gray-600 mt-1">Manage your training and match availability</p>
+            <p className="text-gray-600 mt-1">{t("manageAvailability")}</p>
           </div>
 
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <Dialog
+            open={dialogOpen}
+            onOpenChange={(isOpen) => {
+              setDialogOpen(isOpen)
+              if (!isOpen) {
+                setEditingAvailability(null)
+              }
+            }}
+          >
             <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
-                Add Availability
+                {t("addAvailability")}
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
-                <DialogTitle>{editingAvailability ? "Edit" : "Set"} Availability</DialogTitle>
-                <DialogDescription>
-                  {editingAvailability ? "Update" : "Set"} your availability for a specific date.
-                </DialogDescription>
+                <DialogTitle>{editingAvailability ? t("editAvailability") : t("setAvailability")}</DialogTitle>
+                <DialogDescription>{editingAvailability ? t("updateAvailabilityDescription") : t("setAvailabilityDescription")}</DialogDescription>
               </DialogHeader>
               <form onSubmit={handleSaveAvailability} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="date">Date</Label>
+                  <Label htmlFor="date">{t("date")}</Label>
                   <Input
                     id="date"
                     type="date"
@@ -209,10 +231,10 @@ export default function AvailabilityPage() {
                         : setNewAvailability({ ...newAvailability, is_available: checked })
                     }
                   />
-                  <Label htmlFor="available">Available</Label>
+                  <Label htmlFor="available">{t("available")}</Label>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="notes">Notes (Optional)</Label>
+                  <Label htmlFor="notes">{t("notesOptional")}</Label>
                   <Textarea
                     id="notes"
                     value={editingAvailability ? editingAvailability.notes || "" : newAvailability.notes}
@@ -221,7 +243,7 @@ export default function AvailabilityPage() {
                         ? setEditingAvailability({ ...editingAvailability, notes: e.target.value })
                         : setNewAvailability({ ...newAvailability, notes: e.target.value })
                     }
-                    placeholder="Any additional notes..."
+                    placeholder="..."
                   />
                 </div>
                 <div className="flex justify-end space-x-2">
@@ -235,15 +257,14 @@ export default function AvailabilityPage() {
           </Dialog>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Calendar */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
                 <CalendarDays className="h-5 w-5 mr-2" />
-                Calendar
+                {t("calendar")}
               </CardTitle>
-              <CardDescription>Click on a date to see availability details</CardDescription>
+              <CardDescription>{t("calendarDescription")}</CardDescription>
             </CardHeader>
             <CardContent>
               <Calendar
@@ -252,8 +273,8 @@ export default function AvailabilityPage() {
                 onSelect={setSelectedDate}
                 className="rounded-md border"
                 modifiers={{
-                  available: (date) => getAvailabilityStatus(date) === true,
-                  unavailable: (date) => getAvailabilityStatus(date) === false,
+                  available: (date) => getTeamAvailabilityStatus(date).available,
+                  unavailable: (date) => getTeamAvailabilityStatus(date).unavailable,
                 }}
                 modifiersStyles={{
                   available: { backgroundColor: "#dcfce7", color: "#166534" },
@@ -263,17 +284,16 @@ export default function AvailabilityPage() {
             </CardContent>
           </Card>
 
-          {/* Selected Date Details */}
           <Card>
             <CardHeader>
-              <CardTitle>{selectedDate ? toYYYYMMDD(selectedDate) : "Select a Date"}</CardTitle>
-              <CardDescription>Availability details for the selected date</CardDescription>
+              <CardTitle>{selectedDate ? toYYYYMMDD(selectedDate) : t("selectDate")}</CardTitle>
+              <CardDescription>{t("availabilityForDate")}</CardDescription>
             </CardHeader>
             <CardContent>
               {selectedDate ? (
                 <div className="space-y-4">
                   {getAvailabilityForDate(selectedDate).length === 0 ? (
-                    <p className="text-gray-500 text-center py-4">No availability set for this date</p>
+                    <p className="text-gray-500 text-center py-4">{t("noAvailabilityForDate")}</p>
                   ) : (
                     <div className="space-y-3">
                       {getAvailabilityForDate(selectedDate).map((avail) => (
@@ -281,9 +301,7 @@ export default function AvailabilityPage() {
                           <div className="flex items-center justify-between mb-2">
                             <span className="font-medium">{avail.profiles.full_name}</span>
                             <div className="flex items-center space-x-2">
-                              <Badge variant={avail.is_available ? "default" : "destructive"}>
-                                {avail.is_available ? "Available" : "Unavailable"}
-                              </Badge>
+                              <Badge variant={avail.is_available ? "default" : "destructive"}>{avail.is_available ? t("available") : t("unavailable")}</Badge>
                               {avail.player_id === profile?.id && (
                                 <>
                                   <Button
@@ -296,11 +314,7 @@ export default function AvailabilityPage() {
                                   >
                                     <Edit className="h-4 w-4" />
                                   </Button>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    onClick={() => handleDeleteAvailability(avail.id)}
-                                  >
+                                  <Button size="icon" variant="ghost" onClick={() => handleDeleteAvailability(avail.id)}>
                                     <Trash className="h-4 w-4" />
                                   </Button>
                                 </>
@@ -314,17 +328,16 @@ export default function AvailabilityPage() {
                   )}
                 </div>
               ) : (
-                <p className="text-gray-500 text-center py-4">Select a date to view availability details</p>
+                <p className="text-gray-500 text-center py-4">{t("selectDatePrompt")}</p>
               )}
             </CardContent>
           </Card>
         </div>
 
-        {/* Upcoming Availability */}
         <Card>
           <CardHeader>
-            <CardTitle>Upcoming Availability</CardTitle>
-            <CardDescription>Your availability for the next 7 days</CardDescription>
+            <CardTitle>{t("upcomingAvailability")}</CardTitle>
+            <CardDescription>{t("upcomingAvailabilityDescription")}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
@@ -338,19 +351,15 @@ export default function AvailabilityPage() {
                   <div key={i} className="flex items-center justify-between p-3 border rounded-lg">
                     <div>
                       <div className="font-medium">{dateString}</div>
-                      <div className="text-sm text-gray-500">
-                        {getDayOfWeek(dateString)}
-                      </div>
+                      <div className="text-sm text-gray-500">{getDayOfWeek(dateString)}</div>
                     </div>
                     <div className="flex items-center space-x-2">
                       {userAvailability ? (
-                        <>
-                          <Badge variant={userAvailability.is_available ? "default" : "destructive"}>
-                            {userAvailability.is_available ? "Available" : "Unavailable"}
-                          </Badge>
-                        </>
+                        <Badge variant={userAvailability.is_available ? "default" : "destructive"}>
+                          {userAvailability.is_available ? t("available") : t("unavailable")}
+                        </Badge>
                       ) : (
-                        <Badge variant="outline">Not Set</Badge>
+                        <Badge variant="outline">{t("notSet")}</Badge>
                       )}
                     </div>
                   </div>

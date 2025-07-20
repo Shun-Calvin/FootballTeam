@@ -49,14 +49,14 @@ export default function ProfilePage() {
 
       if (error) throw error
 
-      setMessage("Profile updated successfully!")
+      setMessage(t("profileUpdateSuccess"))
       setEditing(false)
 
       // Refresh the page to get updated profile
       window.location.reload()
     } catch (error) {
       console.error("Error updating profile:", error)
-      setMessage("Error updating profile. Please try again.")
+      setMessage(t("profileUpdateError"))
     } finally {
       setLoading(false)
     }
@@ -76,20 +76,20 @@ export default function ProfilePage() {
   const handleChangePassword = async () => {
     setPasswordMessage("")
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setPasswordMessage("Passwords do not match.")
+      setPasswordMessage(t("passwordsNoMatch"))
       return
     }
     if (passwordData.newPassword.length < 6) {
-      setPasswordMessage("Password must be at least 6 characters long.")
+      setPasswordMessage(t("passwordTooShort"))
       return
     }
 
     setLoading(true)
     const { error } = await supabase.auth.updateUser({ password: passwordData.newPassword })
     if (error) {
-      setPasswordMessage(`Error changing password: ${error.message}`)
+      setPasswordMessage(t("passwordChangeError", { message: error.message }))
     } else {
-      setPasswordMessage("Password changed successfully!")
+      setPasswordMessage(t("passwordChangeSuccess"))
       setPasswordData({ newPassword: "", confirmPassword: "" })
     }
     setLoading(false)
@@ -103,7 +103,7 @@ export default function ProfilePage() {
             <User className="h-8 w-8 mr-3" />
             {t("profile")}
           </h1>
-          <p className="text-gray-600 mt-1">Manage your personal information</p>
+          <p className="text-gray-600 mt-1">{t("manageProfile")}</p>
         </div>
 
         <div className="max-w-2xl space-y-6">
@@ -155,15 +155,15 @@ export default function ProfilePage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">{t("email")}</Label>
                   <Input id="email" value={profile?.email || ""} disabled className="bg-gray-50" />
-                  <p className="text-xs text-gray-500">Email cannot be changed</p>
+                  <p className="text-xs text-gray-500">{t("emailCannotChange")}</p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="username">Username</Label>
+                  <Label htmlFor="username">{t("username")}</Label>
                   <Input id="username" value={profile?.username || ""} disabled className="bg-gray-50" />
-                  <p className="text-xs text-gray-500">Username cannot be changed</p>
+                  <p className="text-xs text-gray-500">{t("usernameCannotChange")}</p>
                 </div>
 
                 <div className="space-y-2">
@@ -211,10 +211,10 @@ export default function ProfilePage() {
               </div>
 
               <div className="pt-4 border-t">
-                <h3 className="font-semibold mb-2">Account Information</h3>
+                <h3 className="font-semibold mb-2">{t("accountInfo")}</h3>
                 <div className="text-sm text-gray-600 space-y-1">
-                  <p>Account created: {new Date(profile?.created_at || "").toLocaleDateString()}</p>
-                  <p>Last updated: {new Date(profile?.updated_at || "").toLocaleDateString()}</p>
+                  <p>{t("accountCreated")} {new Date(profile?.created_at || "").toLocaleDateString()}</p>
+                  <p>{t("lastUpdated")} {new Date(profile?.updated_at || "").toLocaleDateString()}</p>
                 </div>
               </div>
             </CardContent>
@@ -224,18 +224,18 @@ export default function ProfilePage() {
             <CardHeader>
               <CardTitle className="flex items-center">
                 <KeyRound className="h-6 w-6 mr-3" />
-                Change Password
+                {t("changePassword")}
               </CardTitle>
-              <CardDescription>Update your account password here.</CardDescription>
+              <CardDescription>{t("changePasswordDescription")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {passwordMessage && (
-                <Alert variant={passwordMessage.startsWith("Error") ? "destructive" : "default"}>
+                <Alert variant={passwordMessage.startsWith("Error") || passwordMessage.startsWith("錯誤") ? "destructive" : "default"}>
                   <AlertDescription>{passwordMessage}</AlertDescription>
                 </Alert>
               )}
               <div className="space-y-2">
-                <Label htmlFor="new-password">New Password</Label>
+                <Label htmlFor="new-password">{t("newPassword")}</Label>
                 <Input
                   id="new-password"
                   type="password"
@@ -244,7 +244,7 @@ export default function ProfilePage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="confirm-password">Confirm New Password</Label>
+                <Label htmlFor="confirm-password">{t("confirmNewPassword")}</Label>
                 <Input
                   id="confirm-password"
                   type="password"
@@ -253,7 +253,7 @@ export default function ProfilePage() {
                 />
               </div>
               <Button onClick={handleChangePassword} disabled={loading}>
-                {loading ? "Updating..." : "Update Password"}
+                {loading ? t("loading") : t("updatePassword")}
               </Button>
             </CardContent>
           </Card>

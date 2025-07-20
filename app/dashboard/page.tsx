@@ -103,15 +103,15 @@ export default function DashboardPage() {
     <DashboardLayout>
       <div className="p-6 space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Welcome back, {profile?.full_name}!</h1>
-          <p className="text-gray-600 mt-1">Here's what's happening with your team</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t("welcomeBack", { name: profile?.full_name || "" })}</h1>
+          <p className="text-gray-600 mt-1">{t("teamStatus")}</p>
         </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Upcoming Matches</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("upcomingMatches")}</CardTitle>
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -121,7 +121,7 @@ export default function DashboardPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Players</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("totalPlayers")}</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -131,7 +131,7 @@ export default function DashboardPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Matches Played</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("matchesPlayed")}</CardTitle>
               <Trophy className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -141,7 +141,7 @@ export default function DashboardPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending Invitations</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("pendingInvitations")}</CardTitle>
               <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -153,18 +153,18 @@ export default function DashboardPage() {
         {/* Upcoming Matches */}
         <Card>
           <CardHeader>
-            <CardTitle>Upcoming Matches</CardTitle>
-            <CardDescription>Your next scheduled matches</CardDescription>
+            <CardTitle>{t("upcomingMatches")}</CardTitle>
+            <CardDescription>{t("nextMatches")}</CardDescription>
           </CardHeader>
           <CardContent>
             {upcomingMatches.length === 0 ? (
-              <p className="text-gray-500 text-center py-4">No upcoming matches scheduled</p>
+              <p className="text-gray-500 text-center py-4">{t("noUpcomingMatches")}</p>
             ) : (
               <div className="space-y-4">
                 {upcomingMatches.map((match) => (
                   <div key={match.id} className="flex items-center justify-between p-4 border rounded-lg">
                     <div>
-                      <h3 className="font-semibold">vs {match.opponent_team}</h3>
+                      <h3 className="font-semibold">{t("vs", { opponent_team: match.opponent_team })}</h3>
                       <p className="text-sm text-gray-600">{match.location}</p>
                       <p className="text-sm text-gray-500">
                         {match.match_date.replace("T", " ").substring(0, 16)}

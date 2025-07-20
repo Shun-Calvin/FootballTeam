@@ -188,14 +188,14 @@ export default function PlayersPage() {
             <Users className="h-8 w-8 mr-3" />
             {t("players")}
           </h1>
-          <p className="text-gray-600 mt-1">Team roster and player statistics</p>
+          <p className="text-gray-600 mt-1">{t("playerRosterStats")}</p>
         </div>
 
-        <div className="flex items-center space-x-2">
-          <div className="relative flex-1">
+        <div className="flex flex-col md:flex-row items-center space-y-2 md:space-y-0 md:space-x-2">
+          <div className="relative flex-1 w-full">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
-              placeholder="Search players..."
+              placeholder={t("searchPlayers")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -203,7 +203,7 @@ export default function PlayersPage() {
           </div>
           <Popover>
             <PopoverTrigger asChild>
-              <Button id="date" variant={"outline"} className="w-[300px] justify-start text-left font-normal">
+              <Button id="date" variant={"outline"} className="w-full md:w-[300px] justify-start text-left font-normal">
                 <CalendarIcon className="mr-2 h-4 w-4" />
                 {dateRange?.from ? (
                   dateRange.to ? (
@@ -214,7 +214,7 @@ export default function PlayersPage() {
                     format(dateRange.from, "LLL dd, y")
                   )
                 ) : (
-                  <span>Pick a date range</span>
+                  <span>{t("pickDateRange")}</span>
                 )}
               </Button>
             </PopoverTrigger>
@@ -259,7 +259,7 @@ export default function PlayersPage() {
                         <CardTitle className="text-lg truncate">{player.full_name}</CardTitle>
                         {player.id === profile?.id && (
                           <Badge variant="secondary" className="text-xs">
-                            You
+                            {t("you")}
                           </Badge>
                         )}
                       </div>
@@ -297,21 +297,21 @@ export default function PlayersPage() {
                   <div className="grid grid-cols-2 gap-3 pt-3 border-t">
                     <div className="text-center">
                       <div className="text-2xl font-bold text-green-600">{stats.matches_played}</div>
-                      <div className="text-xs text-gray-500">Matches</div>
+                      <div className="text-xs text-gray-500">{t("matches")}</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-blue-600">{stats.goals}</div>
-                      <div className="text-xs text-gray-500">Goals</div>
+                      <div className="text-xs text-gray-500">{t("goals")}</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-purple-600">{stats.assists}</div>
-                      <div className="text-xs text-gray-500">Assists</div>
+                      <div className="text-xs text-gray-500">{t("assists")}</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-orange-600">
                         {stats.average_rating > 0 ? stats.average_rating.toFixed(1) : "-"}
                       </div>
-                      <div className="text-xs text-gray-500">Rating</div>
+                      <div className="text-xs text-gray-500">{t("rating")}</div>
                     </div>
                   </div>
                 </CardContent>
@@ -324,9 +324,9 @@ export default function PlayersPage() {
           <Card>
             <CardContent className="text-center py-8">
               <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">No players found</p>
+              <p className="text-gray-500">{t("noPlayersFound")}</p>
               <p className="text-sm text-gray-400 mt-1">
-                {searchTerm ? "Try adjusting your search terms" : "No players have been added yet"}
+                {searchTerm ? t("adjustSearch") : t("noPlayersAdded")}
               </p>
             </CardContent>
           </Card>

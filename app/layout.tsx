@@ -20,6 +20,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+       <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#4ade80" />
+      </head>
       <body className={inter.className}>
         <LanguageProvider>
           <AuthProvider>{children}</AuthProvider>

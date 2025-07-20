@@ -43,9 +43,9 @@ interface Match {
 }
 
 interface PlayerProfile {
-  id: string
-  full_name: string
-  jersey_number: number | null
+    id: string
+    full_name: string
+    jersey_number: number | null
 }
 
 interface MatchParticipant {
@@ -162,9 +162,7 @@ export default function MatchesPage() {
     try {
       const { error } = await supabase
         .from("match_participants")
-        .update({ status })
-        .eq("match_id", matchId)
-        .eq("player_id", profile?.id)
+        .upsert({ match_id: matchId, player_id: profile?.id, status: status }, { onConflict: 'match_id, player_id' })
 
       if (error) throw error
       fetchMatchesAndParticipants()
@@ -330,7 +328,7 @@ export default function MatchesPage() {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">{t("matches")}</h1>
-            <p className="text-gray-600 mt-1">Manage team matches and schedules</p>
+            <p className="text-gray-600 mt-1">{t("manageMatches")}</p>
           </div>
 
           <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
@@ -343,7 +341,7 @@ export default function MatchesPage() {
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
                 <DialogTitle>{t("createMatch")}</DialogTitle>
-                <DialogDescription>Create a new match for your team</DialogDescription>
+                <DialogDescription>{t("createMatchDescription")}</DialogDescription>
               </DialogHeader>
               <form onSubmit={handleCreateMatch} className="space-y-4">
                 <div className="space-y-2">
@@ -386,8 +384,8 @@ export default function MatchesPage() {
             <Card>
               <CardContent className="text-center py-8">
                 <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">No matches scheduled yet</p>
-                <p className="text-sm text-gray-400 mt-1">Create your first match to get started</p>
+                <p className="text-gray-500">{t("noMatchesScheduled")}</p>
+                <p className="text-sm text-gray-400 mt-1">{t("firstMatchPrompt")}</p>
               </CardContent>
             </Card>
           ) : (
@@ -403,7 +401,7 @@ export default function MatchesPage() {
                     <div className="flex justify-between items-start">
                       <div>
                         <CardTitle className="flex items-center space-x-2">
-                          <span>vs {match.opponent_team}</span>
+                          <span>{t("vs", { opponent_team: match.opponent_team })}</span>
                           <Badge variant={match.status === "completed" ? "default" : "secondary"}>{match.status}</Badge>
                         </CardTitle>
                         <CardDescription className="flex items-center space-x-4 mt-2">
@@ -430,23 +428,23 @@ export default function MatchesPage() {
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
-                        <h4 className="font-semibold mb-2">Jersey Colors</h4>
+                        <h4 className="font-semibold mb-2">{t("jerseyColors")}</h4>
                         <div className="space-y-1 text-sm">
-                          <div>Home: {match.home_jersey_color || "Not specified"}</div>
-                          <div>Away: {match.away_jersey_color || "Not specified"}</div>
+                          <div>{t("home")}: {match.home_jersey_color || t("notSpecified")}</div>
+                          <div>{t("away")}: {match.away_jersey_color || t("notSpecified")}</div>
                         </div>
                       </div>
                       <div>
                         <h4 className="font-semibold mb-2 flex items-center">
                           <Users className="h-4 w-4 mr-1" />
-                          Participants ({acceptedCount})
+                          {t("participantsCount", { count: acceptedCount })}
                         </h4>
                         <div className="space-y-1 text-sm">
                           {participantList.slice(0, 3).map((participant) => (
                             <div key={participant.id} className="flex items-center justify-between">
                               <span>{participant.profiles.full_name}</span>
                               <Badge variant={participant.status === "accepted" ? "default" : participant.status === "declined" ? "destructive" : "secondary"} className="text-xs">
-                                {participant.status}
+                                {t(participant.status as any)}
                               </Badge>
                             </div>
                           ))}
@@ -457,7 +455,7 @@ export default function MatchesPage() {
                         <h4 className="font-semibold mb-2">{t("keyPlayers")}</h4>
                         <div className="space-y-1 text-sm">
                           {keyPlayers.length === 0 ? (
-                            <span className="text-gray-500">None assigned</span>
+                            <span className="text-gray-500">{t("noneAssigned")}</span>
                           ) : (
                             keyPlayers.map((player) => (
                               <div key={player.id}>
@@ -473,18 +471,18 @@ export default function MatchesPage() {
                       <div>
                         <h4 className="font-semibold mb-2 flex items-center">
                           <Video className="h-4 w-4 mr-1" />
-                          Match Video
+                          {t("matchVideo")}
                         </h4>
                         {match.video_link.split(',').map((link, index) => (
                           <a key={index} href={link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-sm block">
-                            Watch Match Recording {index + 1}
+                            {t("watchRecording")} {index + 1}
                           </a>
                         ))}
                       </div>
                     )}
                     <div className="flex justify-between items-center pt-4 border-t">
                       <div className="flex items-center space-x-2">
-                        <span className="text-sm text-gray-600">Your status:</span>
+                        <span className="text-sm text-gray-600">{t("yourStatus")}</span>
                         <Badge variant={userStatus === "accepted" ? "default" : userStatus === "declined" ? "destructive" : "secondary"}>
                           {t(userStatus as any)}
                         </Badge>
@@ -502,11 +500,11 @@ export default function MatchesPage() {
                       <div className="space-x-2">
                         <Button size="sm" variant="outline" onClick={() => openEditDialog(match)}>
                           <Edit className="h-4 w-4 mr-2" />
-                          Edit
+                          {t("edit")}
                         </Button>
                         <Button size="sm" variant="destructive" onClick={() => handleDeleteMatch(match.id)}>
                           <Trash className="h-4 w-4 mr-2" />
-                          Delete
+                          {t("delete")}
                         </Button>
                       </div>
                     </div>
@@ -521,32 +519,32 @@ export default function MatchesPage() {
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
           <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Edit Match</DialogTitle>
-              <DialogDescription>Edit details for the match against {selectedMatch.opponent_team}</DialogDescription>
+              <DialogTitle>{t("editMatch")}</DialogTitle>
+              <DialogDescription>{t("editMatchDescription", { opponent_team: selectedMatch.opponent_team })}</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleEditMatch} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="opponent-team">Opponent Team</Label>
+                  <Label htmlFor="opponent-team">{t("opponentTeam")}</Label>
                   <Input id="opponent-team" value={selectedMatch.opponent_team} onChange={(e) => setSelectedMatch({ ...selectedMatch, opponent_team: e.target.value })} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="location">Location</Label>
+                  <Label htmlFor="location">{t("location")}</Label>
                   <Input id="location" value={selectedMatch.location} onChange={(e) => setSelectedMatch({ ...selectedMatch, location: e.target.value })} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="score-home">Home Score</Label>
+                  <Label htmlFor="score-home">{t("homeScore")}</Label>
                   <Input id="score-home" type="number" value={selectedMatch.final_score_home || ""} onChange={(e) => setSelectedMatch({ ...selectedMatch, final_score_home: parseInt(e.target.value) || null })} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="score-away">Away Score</Label>
+                  <Label htmlFor="score-away">{t("awayScore")}</Label>
                   <Input id="score-away" type="number" value={selectedMatch.final_score_away || ""} onChange={(e) => setSelectedMatch({ ...selectedMatch, final_score_away: parseInt(e.target.value) || null })} />
                 </div>
               </div>
               <div>
-                <Label>Match Videos</Label>
+                <Label>{t("matchVideos")}</Label>
                 {selectedMatch.video_links.map((link, index) => (
                   <div key={index} className="flex items-center gap-2 mb-2">
                     <Input value={link} onChange={(e) => handleVideoLinkChange(index, e.target.value)} />
@@ -556,11 +554,11 @@ export default function MatchesPage() {
                   </div>
                 ))}
                 <Button type="button" variant="outline" size="sm" onClick={addVideoLink}>
-                  Add Video
+                  {t("addVideo")}
                 </Button>
               </div>
               <div className="space-y-2">
-                <Label>Key Players</Label>
+                <Label>{t("keyPlayers")}</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="outline" role="combobox" className="w-full justify-between h-auto min-h-10">
@@ -570,15 +568,15 @@ export default function MatchesPage() {
                             const player = allPlayers.find(p => p.id === playerId);
                             return <Badge key={playerId} variant="secondary">{player?.full_name}</Badge>
                           })
-                          : "Select players..."}
+                          : t("selectPlayers")}
                       </div>
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                     <Command>
-                      <CommandInput placeholder="Search players..." />
-                      <CommandEmpty>No players found.</CommandEmpty>
+                      <CommandInput placeholder={t("searchPlayers")} />
+                      <CommandEmpty>{t("noPlayersFound")}</CommandEmpty>
                       <CommandGroup>
                         <CommandList>
                           {allPlayers.map((player) => (
@@ -604,7 +602,7 @@ export default function MatchesPage() {
                 </Popover>
               </div>
               <div>
-                <h4 className="font-semibold mb-2">Participants</h4>
+                <h4 className="font-semibold mb-2">{t("participants")}</h4>
                 {editableParticipants.map((p, i) => (
                   <div key={p.id} className="grid grid-cols-2 gap-2 mb-2">
                     <p>{p.profiles.full_name}</p>
@@ -617,16 +615,16 @@ export default function MatchesPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="accepted">Accepted</SelectItem>
-                        <SelectItem value="declined">Declined</SelectItem>
-                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="accepted">{t("accepted")}</SelectItem>
+                        <SelectItem value="declined">{t("declined")}</SelectItem>
+                        <SelectItem value="pending">{t("pending")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 ))}
               </div>
               <div>
-                <h4 className="font-semibold mb-2">Match Events</h4>
+                <h4 className="font-semibold mb-2">{t("matchEvents")}</h4>
                 {matchEvents.map((event, index) => (
                   <div key={index} className="grid grid-cols-4 gap-2 mb-2">
                     <Select value={event.event_type} onValueChange={(value) => {
@@ -635,11 +633,11 @@ export default function MatchesPage() {
                       setMatchEvents(newEvents)
                     }}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Event Type" />
+                        <SelectValue placeholder={t("eventType")} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Goal">Goal</SelectItem>
-                        <SelectItem value="Assist">Assist</SelectItem>
+                        <SelectItem value="Goal">{t("goal")}</SelectItem>
+                        <SelectItem value="Assist">{t("assist")}</SelectItem>
                       </SelectContent>
                     </Select>
                     <Select value={event.player_id} onValueChange={(value) => {
@@ -648,7 +646,7 @@ export default function MatchesPage() {
                       setMatchEvents(newEvents)
                     }}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Player" />
+                        <SelectValue placeholder={t("player")} />
                       </SelectTrigger>
                       <SelectContent>
                         {editableParticipants.map((p) => (
@@ -658,7 +656,7 @@ export default function MatchesPage() {
                         ))}
                       </SelectContent>
                     </Select>
-                    <Input placeholder="Time (mins)" type="number" value={event.event_time || ""} onChange={(e) => {
+                    <Input placeholder={t("timeInMin")} type="number" value={event.event_time || ""} onChange={(e) => {
                       const newEvents = [...matchEvents]
                       newEvents[index].event_time = parseInt(e.target.value)
                       setMatchEvents(newEvents)
@@ -669,14 +667,14 @@ export default function MatchesPage() {
                   </div>
                 ))}
                 <Button type="button" variant="outline" size="sm" onClick={() => setMatchEvents([...matchEvents, { event_type: "Goal", player_id: "", event_time: 0, description: "" }])}>
-                  Add Event
+                  {t("addEvent")}
                 </Button>
               </div>
               <div className="flex justify-end space-x-2">
                 <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>
-                  Cancel
+                  {t("cancel")}
                 </Button>
-                <Button type="submit">Save Changes</Button>
+                <Button type="submit">{t("saveChanges")}</Button>
               </div>
             </form>
           </DialogContent>
