@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
@@ -24,9 +24,15 @@ const navigation = [
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
-  const { signOut, profile } = useAuth()
+  const { signOut, profile, loading } = useAuth()
   const { language, setLanguage, t } = useLanguage()
   const router = useRouter()
+  
+  useEffect(() => {
+    if (!loading && !profile) {
+      router.push("/login")
+    }
+  }, [profile, loading, router])
 
   const handleSignOut = async () => {
     await signOut()
@@ -97,6 +103,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
     </div>
   )
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-gray-50">

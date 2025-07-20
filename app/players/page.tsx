@@ -36,10 +36,6 @@ export default function PlayersPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchPlayers()
-  }, [])
-
   const fetchPlayers = async () => {
     try {
       const { data: playersData } = await supabase.from("profiles").select("*").order("full_name", { ascending: true })
@@ -62,14 +58,14 @@ export default function PlayersPage() {
             .from("match_events")
             .select("*", { count: "exact", head: true })
             .eq("player_id", player.id)
-            .eq("event_type", "goal")
+            .eq("event_type", "Goal")
 
           // Get assists
           const { count: assistsCount } = await supabase
             .from("match_events")
             .select("*", { count: "exact", head: true })
             .eq("player_id", player.id)
-            .eq("event_type", "assist")
+            .eq("event_type", "Assist")
 
           // Get average rating
           const { data: ratingsData } = await supabase
@@ -97,6 +93,27 @@ export default function PlayersPage() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    fetchPlayers() // Initial fetch
+
+    // Set up real-time subscription to refetch data on changes
+    const channel = supabase
+      .channel("match_events_changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "match_events" },
+        (payload) => {
+          fetchPlayers()
+        }
+      )
+      .subscribe()
+
+    // Cleanup subscription on component unmount
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [])
 
   const filteredPlayers = players.filter(
     (player) =>

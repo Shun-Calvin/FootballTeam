@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Plus, Calendar, MapPin, Users, Video, Edit, Trash } from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface Match {
   id: string
@@ -68,8 +69,9 @@ export default function MatchesPage() {
   const [loading, setLoading] = useState(true)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
-  const [selectedMatch, setSelectedMatch] = useState<Match | null>(null)
+  const [selectedMatch, setSelectedMatch] = useState<Match & { video_links: string[] } | null>(null)
   const [matchEvents, setMatchEvents] = useState<MatchEvent[]>([])
+  const [editableParticipants, setEditableParticipants] = useState<MatchParticipant[]>([])
   const [newMatch, setNewMatch] = useState({
     opponent_team: "",
     match_date: "",
@@ -180,8 +182,11 @@ export default function MatchesPage() {
       const { error } = await supabase
         .from("matches")
         .update({
+          opponent_team: selectedMatch.opponent_team,
+          location: selectedMatch.location,
           final_score_home: selectedMatch.final_score_home,
           final_score_away: selectedMatch.final_score_away,
+          video_link: selectedMatch.video_links.join(','),
         })
         .eq("id", selectedMatch.id)
 
@@ -190,6 +195,14 @@ export default function MatchesPage() {
       // Update match events
       for (const event of matchEvents) {
         await supabase.from("match_events").upsert({ ...event, match_id: selectedMatch.id })
+      }
+      
+      // Update participant statuses
+      for (const participant of editableParticipants) {
+        await supabase
+          .from("match_participants")
+          .update({ status: participant.status })
+          .eq("id", participant.id)
       }
 
       setEditDialogOpen(false)
@@ -218,9 +231,11 @@ export default function MatchesPage() {
   }
 
   const openEditDialog = async (match: Match) => {
-    setSelectedMatch(match)
-    const { data } = await supabase.from("match_events").select("*").eq("match_id", match.id)
-    setMatchEvents(data || [])
+    setSelectedMatch({ ...match, video_links: match.video_link?.split(',') || [""] });
+    const { data: eventsData } = await supabase.from("match_events").select("*").eq("match_id", match.id)
+    const { data: participantsData } = await supabase.from("match_participants").select("*, profiles (full_name)").eq("match_id", match.id)
+    setMatchEvents(eventsData || [])
+    setEditableParticipants(participantsData || [])
     setEditDialogOpen(true)
   }
 
@@ -354,7 +369,7 @@ export default function MatchesPage() {
                         <CardDescription className="flex items-center space-x-4 mt-2">
                           <span className="flex items-center">
                             <Calendar className="h-4 w-4 mr-1" />
-                            {match.match_date.replace("T", " ")}
+                            {match.match_date.replace("T", " ").substring(0, 16)}
                           </span>
                           <span className="flex items-center">
                             <MapPin className="h-4 w-4 mr-1" />
@@ -505,6 +520,28 @@ export default function MatchesPage() {
               <DialogDescription>Edit details for the match against {selectedMatch.opponent_team}</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleEditMatch} className="space-y-4">
+               <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="opponent-team">Opponent Team</Label>
+                  <Input
+                    id="opponent-team"
+                    value={selectedMatch.opponent_team}
+                    onChange={(e) =>
+                      setSelectedMatch({ ...selectedMatch, opponent_team: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="location">Location</Label>
+                  <Input
+                    id="location"
+                    value={selectedMatch.location}
+                    onChange={(e) =>
+                      setSelectedMatch({ ...selectedMatch, location: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="score-home">Home Score</Label>
@@ -529,29 +566,112 @@ export default function MatchesPage() {
                   />
                 </div>
               </div>
+              
+              <div>
+                <Label>Match Videos</Label>
+                {selectedMatch.video_links.map((link, index) => (
+                  <div key={index} className="flex items-center gap-2 mb-2">
+                    <Input
+                      value={link}
+                      onChange={(e) => {
+                        const newLinks = [...selectedMatch.video_links]
+                        newLinks[index] = e.target.value
+                        setSelectedMatch({ ...selectedMatch, video_links: newLinks })
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => {
+                        const newLinks = selectedMatch.video_links.filter((_, i) => i !== index)
+                        setSelectedMatch({ ...selectedMatch, video_links: newLinks })
+                      }}
+                    >
+                      <Trash className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setSelectedMatch({
+                      ...selectedMatch,
+                      video_links: [...selectedMatch.video_links, ""],
+                    })
+                  }
+                >
+                  Add Video
+                </Button>
+              </div>
+
+              <div>
+                <h4 className="font-semibold mb-2">Participants</h4>
+                {editableParticipants.map((p, i) => (
+                  <div key={p.id} className="grid grid-cols-2 gap-2 mb-2">
+                    <p>{p.profiles.full_name}</p>
+                    <Select
+                      value={p.status}
+                      onValueChange={(value) => {
+                        const newParticipants = [...editableParticipants]
+                        newParticipants[i].status = value
+                        setEditableParticipants(newParticipants)
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="accepted">Accepted</SelectItem>
+                        <SelectItem value="declined">Declined</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
+              </div>
 
               <div>
                 <h4 className="font-semibold mb-2">Match Events</h4>
                 {matchEvents.map((event, index) => (
-                  <div key={index} className="grid grid-cols-5 gap-2 mb-2">
-                    <Input
-                      placeholder="Event Type"
+                  <div key={index} className="grid grid-cols-4 gap-2 mb-2">
+                    <Select
                       value={event.event_type}
-                      onChange={(e) => {
+                      onValueChange={(value) => {
                         const newEvents = [...matchEvents]
-                        newEvents[index].event_type = e.target.value
+                        newEvents[index].event_type = value
                         setMatchEvents(newEvents)
                       }}
-                    />
-                    <Input
-                      placeholder="Player ID"
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Event Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Goal">Goal</SelectItem>
+                        <SelectItem value="Assist">Assist</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select
                       value={event.player_id}
-                      onChange={(e) => {
+                      onValueChange={(value) => {
                         const newEvents = [...matchEvents]
-                        newEvents[index].player_id = e.target.value
+                        newEvents[index].player_id = value
                         setMatchEvents(newEvents)
                       }}
-                    />
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Player" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {editableParticipants.map((p) => (
+                          <SelectItem key={p.player_id} value={p.player_id}>
+                            {p.profiles.full_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <Input
                       placeholder="Time (mins)"
                       type="number"
@@ -559,15 +679,6 @@ export default function MatchesPage() {
                       onChange={(e) => {
                         const newEvents = [...matchEvents]
                         newEvents[index].event_time = parseInt(e.target.value)
-                        setMatchEvents(newEvents)
-                      }}
-                    />
-                    <Input
-                      placeholder="Description"
-                      value={event.description || ""}
-                      onChange={(e) => {
-                        const newEvents = [...matchEvents]
-                        newEvents[index].description = e.target.value
                         setMatchEvents(newEvents)
                       }}
                     />

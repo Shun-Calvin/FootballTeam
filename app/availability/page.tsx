@@ -36,6 +36,15 @@ interface Availability {
   }
 }
 
+// Helper function to format a Date object to 'YYYY-MM-DD' string without timezone conversion
+const toYYYYMMDD = (date: Date) => {
+  const d = new Date(date)
+  const year = d.getFullYear()
+  const month = (d.getMonth() + 1).toString().padStart(2, "0")
+  const day = d.getDate().toString().padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
 export default function AvailabilityPage() {
   const { profile } = useAuth()
   const { t } = useLanguage()
@@ -78,12 +87,20 @@ export default function AvailabilityPage() {
     e.preventDefault()
 
     try {
-      const payload = {
-        player_id: profile?.id,
-        date: editingAvailability ? editingAvailability.date : newAvailability.date,
-        is_available: editingAvailability ? editingAvailability.is_available : newAvailability.is_available,
-        notes: editingAvailability ? editingAvailability.notes : newAvailability.notes,
-      }
+      const payload = editingAvailability
+        ? {
+            id: editingAvailability.id,
+            player_id: editingAvailability.player_id,
+            date: editingAvailability.date,
+            is_available: editingAvailability.is_available,
+            notes: editingAvailability.notes,
+          }
+        : {
+            player_id: profile?.id,
+            date: newAvailability.date,
+            is_available: newAvailability.is_available,
+            notes: newAvailability.notes,
+          }
 
       const { error } = await supabase.from("availability").upsert(payload)
 
@@ -112,7 +129,7 @@ export default function AvailabilityPage() {
   }
 
   const getAvailabilityForDate = (date: Date) => {
-    const dateString = date.toISOString().split("T")[0]
+    const dateString = toYYYYMMDD(date)
     return availability.filter((a) => a.date === dateString)
   }
 
@@ -121,6 +138,12 @@ export default function AvailabilityPage() {
     const userAvailability = dateAvailability.find((a) => a.player_id === profile?.id)
     return userAvailability?.is_available
   }
+  
+  const getDayOfWeek = (dateString: string) => {
+    const date = new Date(dateString + 'T00:00:00') // Treat as local time to avoid timezone shift
+    return date.toLocaleDateString("en-US", { weekday: "long" })
+  }
+
 
   if (loading) {
     return (
@@ -243,7 +266,7 @@ export default function AvailabilityPage() {
           {/* Selected Date Details */}
           <Card>
             <CardHeader>
-              <CardTitle>{selectedDate ? new Date(selectedDate).toLocaleDateString() : "Select a Date"}</CardTitle>
+              <CardTitle>{selectedDate ? toYYYYMMDD(selectedDate) : "Select a Date"}</CardTitle>
               <CardDescription>Availability details for the selected date</CardDescription>
             </CardHeader>
             <CardContent>
@@ -308,15 +331,15 @@ export default function AvailabilityPage() {
               {Array.from({ length: 7 }, (_, i) => {
                 const date = new Date()
                 date.setDate(date.getDate() + i)
-                const dateString = date.toISOString().split("T")[0]
+                const dateString = toYYYYMMDD(date)
                 const userAvailability = availability.find((a) => a.date === dateString && a.player_id === profile?.id)
 
                 return (
                   <div key={i} className="flex items-center justify-between p-3 border rounded-lg">
                     <div>
-                      <div className="font-medium">{new Date(date).toLocaleDateString()}</div>
+                      <div className="font-medium">{dateString}</div>
                       <div className="text-sm text-gray-500">
-                        {new Date(date).toLocaleDateString("en-US", { weekday: "long" })}
+                        {getDayOfWeek(dateString)}
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
