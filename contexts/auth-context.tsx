@@ -20,6 +20,7 @@ interface AuthContextType {
   user: User | null
   profile: Profile | null
   loading: boolean
+  sessionKey: number // New session key to trigger re-fetches
   signIn: (email: string, password: string) => Promise<{ error: any }>
   signOut: () => Promise<void>
   createUser: (userData: {
@@ -39,15 +40,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [sessionKey, setSessionKey] = useState(0) // New session key state
 
   const fetchProfile = async (userId: string) => {
-    try {
-      const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single()
-      if (error) throw error
-      setProfile(data)
-    } catch (error) {
+    const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single()
+    if (error) {
       console.error("Error fetching profile:", error)
       setProfile(null)
+    } else {
+      setProfile(data)
     }
   }
 
@@ -58,6 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (session?.user) {
         await fetchProfile(session.user.id)
       }
+      setSessionKey(prev => prev + 1); // Trigger initial data load on pages
       setLoading(false)
     }
 
@@ -70,7 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setProfile(null)
       }
-      setLoading(false)
+      setSessionKey(prev => prev + 1); // Trigger re-fetch on auth changes
     })
 
     return () => {
@@ -79,17 +81,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const signIn = async (email: string, password: string) => {
+    setLoading(true)
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (data.user) {
       await fetchProfile(data.user.id)
+      setSessionKey(prev => prev + 1); // Trigger re-fetch after sign in
     }
+    setLoading(false)
     return { error }
   }
 
   const signOut = async () => {
+    setLoading(true)
     await supabase.auth.signOut()
-    setProfile(null)
     setUser(null)
+    setProfile(null)
+    setLoading(false)
   }
 
   const createUser = async (userData: {
@@ -133,6 +140,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     profile,
     loading,
+    sessionKey,
     signIn,
     signOut,
     createUser,

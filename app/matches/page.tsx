@@ -67,7 +67,7 @@ interface MatchEvent {
 }
 
 export default function MatchesPage() {
-  const { profile } = useAuth()
+  const { profile, sessionKey } = useAuth()
   const { t } = useLanguage()
   const [matches, setMatches] = useState<Match[]>([])
   const [participants, setParticipants] = useState<{ [key: string]: MatchParticipant[] }>({})
@@ -89,6 +89,7 @@ export default function MatchesPage() {
   })
 
   const fetchMatchesAndParticipants = useCallback(async () => {
+    if (!profile) return; // Don't fetch data until the user profile is available
     setLoading(true)
     try {
       const [{ data: matchesData, error: matchesError }, { data: participantsData, error: participantsError }] = await Promise.all([
@@ -116,11 +117,11 @@ export default function MatchesPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [profile])
 
   useEffect(() => {
     fetchMatchesAndParticipants()
-  }, [fetchMatchesAndParticipants])
+  }, [fetchMatchesAndParticipants, sessionKey]) // Add sessionKey as a dependency
 
   const handleCreateMatch = async (e: React.FormEvent) => {
     e.preventDefault()
