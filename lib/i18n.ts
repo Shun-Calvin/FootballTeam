@@ -123,6 +123,68 @@ export const translations = {
     error: "錯誤",
     success: "成功",
   },
+  "zh-TW": {
+    // Navigation
+    dashboard: "儀表板",
+    matches: "比賽",
+    players: "球員",
+    availability: "可出席時間",
+    profile: "個人資料",
+    logout: "登出",
+
+    // Authentication
+    login: "登入",
+    username: "使用者名稱",
+    password: "密碼",
+    signIn: "登入",
+    createUser: "建立新使用者",
+    fullName: "全名",
+    jerseyNumber: "球衣號碼",
+    position: "位置",
+    phone: "電話",
+    create: "建立",
+
+    // Matches
+    createMatch: "建立比賽",
+    opponentTeam: "對手球隊",
+    matchDate: "比賽日期",
+    location: "地點",
+    homeJerseyColor: "主場球衣顏色",
+    awayJerseyColor: "客場球衣顏色",
+    isHomeGame: "主場比賽",
+    keyPlayers: "關鍵球員",
+    matchDetails: "比賽詳情",
+    accept: "接受",
+    decline: "拒絕",
+    pending: "待定",
+    accepted: "已接受",
+    declined: "已拒絕",
+
+    // Match Events
+    addEvent: "新增事件",
+    goal: "進球",
+    assist: "助攻",
+    waterBreak: "喝水時間",
+    halftime: "中場休息",
+    gameStart: "比賽開始",
+    gameEnd: "比賽結束",
+    eventTime: "事件時間（分鐘）",
+
+    // Ratings
+    ratePlayer: "評價球員",
+    rating: "評分",
+    comments: "評論",
+    submitRating: "提交評分",
+
+    // Common
+    save: "儲存",
+    cancel: "取消",
+    edit: "編輯",
+    delete: "刪除",
+    loading: "載入中...",
+    error: "錯誤",
+    success: "成功",
+  },
 }
 
 export type Language = keyof typeof translations
@@ -130,7 +192,7 @@ export type TranslationKey = keyof typeof translations.en
 
 export function useTranslation(lang: Language = "en") {
   return {
-    t: (key: TranslationKey) => translations[lang][key] || translations.en[key],
+    t: (key: TranslationKey) => translations[lang]?.[key] || translations.en[key],
     lang,
   }
 }

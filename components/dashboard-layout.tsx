@@ -77,7 +77,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="en">English</SelectItem>
-              <SelectItem value="zh">中文</SelectItem>
+              <SelectItem value="zh-TW">繁體中文</SelectItem>
             </SelectContent>
           </Select>
         </div>

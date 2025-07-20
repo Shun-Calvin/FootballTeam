@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { User, Edit, Save, X } from "lucide-react"
+import { User, Edit, Save, X, KeyRound } from "lucide-react"
 
 export default function ProfilePage() {
   const { profile, user } = useAuth()
@@ -19,11 +19,16 @@ export default function ProfilePage() {
   const [editing, setEditing] = useState(false)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState("")
+  const [passwordMessage, setPasswordMessage] = useState("")
   const [formData, setFormData] = useState({
     full_name: profile?.full_name || "",
     jersey_number: profile?.jersey_number?.toString() || "",
     position: profile?.position || "",
     phone: profile?.phone || "",
+  })
+  const [passwordData, setPasswordData] = useState({
+    newPassword: "",
+    confirmPassword: "",
   })
 
   const handleSave = async () => {
@@ -68,6 +73,28 @@ export default function ProfilePage() {
     setMessage("")
   }
 
+  const handleChangePassword = async () => {
+    setPasswordMessage("")
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setPasswordMessage("Passwords do not match.")
+      return
+    }
+    if (passwordData.newPassword.length < 6) {
+      setPasswordMessage("Password must be at least 6 characters long.")
+      return
+    }
+
+    setLoading(true)
+    const { error } = await supabase.auth.updateUser({ password: passwordData.newPassword })
+    if (error) {
+      setPasswordMessage(`Error changing password: ${error.message}`)
+    } else {
+      setPasswordMessage("Password changed successfully!")
+      setPasswordData({ newPassword: "", confirmPassword: "" })
+    }
+    setLoading(false)
+  }
+
   return (
     <DashboardLayout>
       <div className="p-6 space-y-6">
@@ -79,7 +106,7 @@ export default function ProfilePage() {
           <p className="text-gray-600 mt-1">Manage your personal information</p>
         </div>
 
-        <div className="max-w-2xl">
+        <div className="max-w-2xl space-y-6">
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -128,7 +155,7 @@ export default function ProfilePage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label> {/* Display email */}
+                  <Label htmlFor="email">Email</Label>
                   <Input id="email" value={profile?.email || ""} disabled className="bg-gray-50" />
                   <p className="text-xs text-gray-500">Email cannot be changed</p>
                 </div>
@@ -186,10 +213,48 @@ export default function ProfilePage() {
               <div className="pt-4 border-t">
                 <h3 className="font-semibold mb-2">Account Information</h3>
                 <div className="text-sm text-gray-600 space-y-1">
-                  <p>Account created: {new Date(profile?.created_at || "").toLocaleDateString("en-US", { timeZone: "Asia/Shanghai" })}</p>
-                  <p>Last updated: {new Date(profile?.updated_at || "").toLocaleDateString("en-US", { timeZone: "Asia/Shanghai" })}</p>
+                  <p>Account created: {new Date(profile?.created_at || "").toLocaleDateString()}</p>
+                  <p>Last updated: {new Date(profile?.updated_at || "").toLocaleDateString()}</p>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <KeyRound className="h-6 w-6 mr-3" />
+                Change Password
+              </CardTitle>
+              <CardDescription>Update your account password here.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {passwordMessage && (
+                <Alert variant={passwordMessage.startsWith("Error") ? "destructive" : "default"}>
+                  <AlertDescription>{passwordMessage}</AlertDescription>
+                </Alert>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="new-password">New Password</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  value={passwordData.newPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password">Confirm New Password</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  value={passwordData.confirmPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                />
+              </div>
+              <Button onClick={handleChangePassword} disabled={loading}>
+                {loading ? "Updating..." : "Update Password"}
+              </Button>
             </CardContent>
           </Card>
         </div>
