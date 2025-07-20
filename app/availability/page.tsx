@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useEffect, useState, useCallback, useRef } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { useLanguage } from "@/contexts/language-context"
 import { supabase } from "@/lib/supabase"
@@ -56,13 +56,9 @@ export default function AvailabilityPage() {
     is_available: true,
     notes: "",
   })
-  const initialLoad = useRef(true);
-
 
   const fetchAvailability = useCallback(async () => {
-    if (initialLoad.current) {
-      setLoading(true)
-    }
+    setLoading(true)
     try {
       const { data } = await supabase
         .from("availability")
@@ -73,10 +69,7 @@ export default function AvailabilityPage() {
     } catch (error) {
       console.error("Error fetching availability:", error)
     } finally {
-      if (initialLoad.current) {
-        setLoading(false)
-        initialLoad.current = false;
-      }
+      setLoading(false)
     }
   }, [])
 
@@ -265,7 +258,7 @@ export default function AvailabilityPage() {
               </CardTitle>
               <CardDescription>{t("calendarDescription")}</CardDescription>
             </CardHeader>
-            <CardContent className="flex justify-center">
+            <CardContent>
               <Calendar
                 mode="single"
                 selected={selectedDate}

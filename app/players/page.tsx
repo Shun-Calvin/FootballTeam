@@ -202,7 +202,7 @@ export default function PlayersPage() {
           </div>
           <Popover>
             <PopoverTrigger asChild>
-              <Button id="date" variant={"outline"} className="w-full md:w-[300px] justify-start text-left font-normal">
+              <Button id="date" variant={"outline"} className="w-full md:w-auto justify-start text-left font-normal">
                 <CalendarIcon className="mr-2 h-4 w-4" />
                 {dateRange?.from ? (
                   dateRange.to ? (
