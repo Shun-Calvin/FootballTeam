@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { useLanguage } from "@/contexts/language-context"
 import { supabase } from "@/lib/supabase"
@@ -36,51 +36,45 @@ export default function DashboardPage() {
   const [upcomingMatches, setUpcomingMatches] = useState<UpcomingMatch[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    if (!profile) return; // Don't fetch data if profile is not loaded yet
-
-    const fetchDashboardData = async () => {
-      try {
-        // Fetch upcoming matches
-        const { data: matches } = await supabase
+  const fetchDashboardData = useCallback(async () => {
+    if (!profile) return;
+    setLoading(true)
+    try {
+      const [
+        { data: matches },
+        { count: playersCount },
+        { count: matchesPlayedCount },
+        { count: pendingCount },
+      ] = await Promise.all([
+        supabase
           .from("matches")
           .select("*")
           .gte("match_date", new Date().toISOString())
           .order("match_date", { ascending: true })
-          .limit(5)
+          .limit(5),
+        supabase.from("profiles").select("*", { count: "exact", head: true }),
+        supabase.from("matches").select("*", { count: "exact", head: true }).eq("status", "completed"),
+        supabase.from("match_participants").select("*", { count: "exact", head: true }).eq("player_id", profile.id).eq("status", "pending"),
+      ])
 
-        // Fetch total players
-        const { count: playersCount } = await supabase.from("profiles").select("*", { count: "exact", head: true })
+      setStats({
+        upcomingMatches: matches?.length || 0,
+        totalPlayers: playersCount || 0,
+        matchesPlayed: matchesPlayedCount || 0,
+        pendingInvitations: pendingCount || 0,
+      })
 
-        // Fetch matches played
-        const { count: matchesPlayedCount } = await supabase
-          .from("matches")
-          .select("*", { count: "exact", head: true })
-          .eq("status", "completed")
-
-        // Fetch pending invitations for current user
-        const { count: pendingCount } = await supabase
-          .from("match_participants")
-          .select("*", { count: "exact", head: true })
-          .eq("player_id", profile.id)
-          .eq("status", "pending")
-
-        setStats({
-          upcomingMatches: matches?.length || 0,
-          totalPlayers: playersCount || 0,
-          matchesPlayed: matchesPlayedCount || 0,
-          pendingInvitations: pendingCount || 0,
-        })
-
-        setUpcomingMatches(matches || [])
-      } catch (error) {
-        console.error("Error fetching dashboard data:", error)
-      } finally {
-        setLoading(false)
-      }
+      setUpcomingMatches(matches || [])
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error)
+    } finally {
+      setLoading(false)
     }
-    fetchDashboardData()
   }, [profile])
+  
+  useEffect(() => {
+    fetchDashboardData()
+  }, [fetchDashboardData])
 
   if (loading) {
     return (

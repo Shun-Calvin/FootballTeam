@@ -104,7 +104,6 @@ export default function LoginPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="en">{t("english")}</SelectItem>
-              <SelectItem value="zh">{t("simplifiedChinese")}</SelectItem>
               <SelectItem value="zh-TW">{t("traditionalChinese")}</SelectItem>
             </SelectContent>
           </Select>
