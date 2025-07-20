@@ -17,15 +17,15 @@ import { Globe } from "lucide-react"
 import type { Language } from "@/types/language"
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("") // Changed from username
+  const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
   // Create user form
   const [newUser, setNewUser] = useState({
-    email: "", // Added email for new user
-    username: "", // Kept username for profile
+    email: "",
+    username: "",
     password: "",
     full_name: "",
     jersey_number: "",
@@ -45,7 +45,7 @@ export default function LoginPage() {
     setLoading(true)
     setError("")
 
-    const { error } = await signIn(email, password) // Changed to email
+    const { error } = await signIn(email, password)
 
     if (error) {
       setError(error.message)
@@ -62,8 +62,8 @@ export default function LoginPage() {
     setCreateError("")
 
     const { error } = await createUser({
-      email: newUser.email, // Pass email
-      username: newUser.username, // Pass username
+      email: newUser.email,
+      username: newUser.username,
       password: newUser.password,
       full_name: newUser.full_name,
       jersey_number: newUser.jersey_number ? Number.parseInt(newUser.jersey_number) : undefined,
@@ -93,15 +93,15 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-blue-50 p-4">
       <div className="w-full max-w-md">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-center flex-1">Football Team Management</h1>
+          <h1 className="text-2xl font-bold text-center flex-1">{t("footballTeamManagement")}</h1>
           <Select value={language} onValueChange={(value: Language) => setLanguage(value)}>
-            <SelectTrigger className="w-20">
+            <SelectTrigger className="w-auto">
               <Globe className="h-4 w-4" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="en">EN</SelectItem>
-              <SelectItem value="zh">中文</SelectItem>
-              <SelectItem value="zh-TW">繁體中文</SelectItem>
+              <SelectItem value="en">{t("english")}</SelectItem>
+              <SelectItem value="zh">{t("simplifiedChinese")}</SelectItem>
+              <SelectItem value="zh-TW">{t("traditionalChinese")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -116,29 +116,17 @@ export default function LoginPage() {
             <Card>
               <CardHeader>
                 <CardTitle>{t("login")}</CardTitle>
-                <CardDescription>Enter your credentials to access the system</CardDescription>
+                <CardDescription>{t("loginDescription")}</CardDescription>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label> {/* Changed label to Email */}
-                    <Input
-                      id="email"
-                      type="email" // Changed type to email
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                    />
+                    <Label htmlFor="email">{t("email")}</Label>
+                    <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="password">{t("password")}</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                    />
+                    <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
                   </div>
                   {error && (
                     <Alert variant="destructive">
@@ -157,81 +145,42 @@ export default function LoginPage() {
             <Card>
               <CardHeader>
                 <CardTitle>{t("createUser")}</CardTitle>
-                <CardDescription>Create a new user account (Admin only)</CardDescription>
+                <CardDescription>{t("createUserDescription")}</CardDescription>
               </CardHeader>
               <CardContent>
                 {createSuccess ? (
                   <Alert>
-                    <AlertDescription>User created successfully! They can now log in.</AlertDescription>
+                    <AlertDescription>{t("createUserSuccess")}</AlertDescription>
                   </Alert>
                 ) : (
                   <form onSubmit={handleCreateUser} className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="new-email">Email</Label> {/* Added email input for new user */}
-                      <Input
-                        id="new-email"
-                        type="email"
-                        value={newUser.email}
-                        onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                        required
-                      />
+                      <Label htmlFor="new-email">{t("email")}</Label>
+                      <Input id="new-email" type="email" value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} required />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="new-username">{t("username")}</Label>
-                      <Input
-                        id="new-username"
-                        type="text"
-                        value={newUser.username}
-                        onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
-                        required
-                      />
+                      <Input id="new-username" type="text" value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value })} required />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="new-password">{t("password")}</Label>
-                      <Input
-                        id="new-password"
-                        type="password"
-                        value={newUser.password}
-                        onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                        required
-                      />
+                      <Input id="new-password" type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} required />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="full-name">{t("fullName")}</Label>
-                      <Input
-                        id="full-name"
-                        type="text"
-                        value={newUser.full_name}
-                        onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })}
-                        required
-                      />
+                      <Input id="full-name" type="text" value={newUser.full_name} onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })} required />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="jersey-number">{t("jerseyNumber")}</Label>
-                      <Input
-                        id="jersey-number"
-                        type="number"
-                        value={newUser.jersey_number}
-                        onChange={(e) => setNewUser({ ...newUser, jersey_number: e.target.value })}
-                      />
+                      <Input id="jersey-number" type="number" value={newUser.jersey_number} onChange={(e) => setNewUser({ ...newUser, jersey_number: e.target.value })} />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="position">{t("position")}</Label>
-                      <Input
-                        id="position"
-                        type="text"
-                        value={newUser.position}
-                        onChange={(e) => setNewUser({ ...newUser, position: e.target.value })}
-                      />
+                      <Input id="position" type="text" value={newUser.position} onChange={(e) => setNewUser({ ...newUser, position: e.target.value })} />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="phone">{t("phone")}</Label>
-                      <Input
-                        id="phone"
-                        type="tel"
-                        value={newUser.phone}
-                        onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
-                      />
+                      <Input id="phone" type="tel" value={newUser.phone} onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })} />
                     </div>
                     {createError && (
                       <Alert variant="destructive">

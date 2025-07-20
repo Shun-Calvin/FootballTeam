@@ -45,7 +45,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
           <span className="text-white font-bold text-sm">FC</span>
         </div>
-        <span className="font-bold text-lg">Football Team</span>
+        <span className="font-bold text-lg">{t("footballTeam")}</span>
       </div>
 
       <nav className="flex-1 space-y-2">
@@ -76,8 +76,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="en">English</SelectItem>
-              <SelectItem value="zh-TW">繁體中文</SelectItem>
+              <SelectItem value="en">{t("english")}</SelectItem>
+              <SelectItem value="zh">{t("simplifiedChinese")}</SelectItem>
+              <SelectItem value="zh-TW">{t("traditionalChinese")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -137,7 +138,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </Button>
             </SheetTrigger>
           </Sheet>
-          <span className="font-semibold">Football Team</span>
+          <span className="font-semibold">{t("footballTeam")}</span>
           <div className="w-8" /> {/* Spacer */}
         </div>
 
