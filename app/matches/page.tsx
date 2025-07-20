@@ -207,6 +207,15 @@ export default function MatchesPage() {
       console.error("Error deleting event:", error)
     }
   }
+  
+  const handleDeleteMatch = async (matchId: string) => {
+    try {
+      await supabase.from("matches").delete().eq("id", matchId)
+      fetchMatches()
+    } catch (error) {
+      console.error("Error deleting match:", error)
+    }
+  }
 
   const openEditDialog = async (match: Match) => {
     setSelectedMatch(match)
@@ -345,7 +354,7 @@ export default function MatchesPage() {
                         <CardDescription className="flex items-center space-x-4 mt-2">
                           <span className="flex items-center">
                             <Calendar className="h-4 w-4 mr-1" />
-                            {new Date(match.match_date).toLocaleString()}
+                            {match.match_date.replace("T", " ")}
                           </span>
                           <span className="flex items-center">
                             <MapPin className="h-4 w-4 mr-1" />
@@ -470,12 +479,16 @@ export default function MatchesPage() {
                           </Button>
                         </div>
                       )}
-                       {new Date(match.match_date) <= new Date() && (
+                       <div className="space-x-2">
                         <Button size="sm" variant="outline" onClick={() => openEditDialog(match)}>
                           <Edit className="h-4 w-4 mr-2" />
                           Edit
                         </Button>
-                      )}
+                        <Button size="sm" variant="destructive" onClick={() => handleDeleteMatch(match.id)}>
+                          <Trash className="h-4 w-4 mr-2" />
+                          Delete
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
