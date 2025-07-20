@@ -15,6 +15,7 @@ import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
 import { format } from "date-fns"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 interface Player {
   id: string
@@ -33,7 +34,6 @@ interface PlayerStats {
   average_rating: number
 }
 
-// Raw data interfaces
 interface Match {
   id: string
   match_date: string
@@ -62,49 +62,48 @@ export default function PlayersPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [loading, setLoading] = useState(true)
   const [dateRange, setDateRange] = useState<DateRange | undefined>()
+  const isMobile = useIsMobile()
 
-  // State to hold all raw data fetched once
   const [allMatches, setAllMatches] = useState<Match[]>([])
   const [allParticipants, setAllParticipants] = useState<MatchParticipant[]>([])
   const [allEvents, setAllEvents] = useState<MatchEvent[]>([])
   const [allRatings, setAllRatings] = useState<PlayerRating[]>([])
 
-  // Fetch all data in parallel on initial component mount
-  useEffect(() => {
-    const fetchAllData = async () => {
-      setLoading(true)
-      try {
-        const [
-          { data: playersData },
-          { data: matchesData },
-          { data: participantsData },
-          { data: eventsData },
-          { data: ratingsData },
-        ] = await Promise.all([
-          supabase.from("profiles").select("*").order("full_name", { ascending: true }),
-          supabase.from("matches").select("id, match_date"),
-          supabase.from("match_participants").select("player_id, status, match_id"),
-          supabase.from("match_events").select("player_id, event_type, match_id"),
-          supabase.from("player_ratings").select("rated_player_id, rating, match_id"),
-        ])
+  const fetchAllData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [
+        { data: playersData },
+        { data: matchesData },
+        { data: participantsData },
+        { data: eventsData },
+        { data: ratingsData },
+      ] = await Promise.all([
+        supabase.from("profiles").select("*").order("full_name", { ascending: true }),
+        supabase.from("matches").select("id, match_date"),
+        supabase.from("match_participants").select("player_id, status, match_id"),
+        supabase.from("match_events").select("player_id, event_type, match_id"),
+        supabase.from("player_ratings").select("rated_player_id, rating, match_id"),
+      ])
 
-        setPlayers(playersData || [])
-        setAllMatches(matchesData || [])
-        setAllParticipants(participantsData || [])
-        setAllEvents(eventsData || [])
-        setAllRatings(ratingsData || [])
-      } catch (error) {
-        console.error("Error fetching data:", error)
-      } finally {
-        setLoading(false)
-      }
+      setPlayers(playersData || [])
+      setAllMatches(matchesData || [])
+      setAllParticipants(participantsData || [])
+      setAllEvents(eventsData || [])
+      setAllRatings(ratingsData || [])
+    } catch (error) {
+      console.error("Error fetching data:", error)
+    } finally {
+      setLoading(false)
     }
-    fetchAllData()
   }, [])
 
-  // Recalculate stats whenever the date range or fetched data changes
   useEffect(() => {
-    if (loading) return // Don't calculate until all data is loaded
+    fetchAllData()
+  }, [fetchAllData])
+
+  useEffect(() => {
+    if (loading) return
 
     const startDate = dateRange?.from
     const endDate = dateRange?.to
@@ -162,7 +161,7 @@ export default function PlayersPage() {
       (player.position && player.position.toLowerCase().includes(searchTerm.toLowerCase()))
   )
 
-  if (loading) {
+  if (loading && players.length === 0) {
     return (
       <DashboardLayout>
         <div className="p-6">
@@ -191,7 +190,7 @@ export default function PlayersPage() {
           <p className="text-gray-600 mt-1">{t("playerRosterStats")}</p>
         </div>
 
-        <div className="flex flex-col md:flex-row items-center space-y-2 md:space-y-0 md:space-x-2">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center space-y-2 md:space-y-0 md:space-x-2">
           <div className="relative flex-1 w-full">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
@@ -225,13 +224,12 @@ export default function PlayersPage() {
                 defaultMonth={dateRange?.from}
                 selected={dateRange}
                 onSelect={setDateRange}
-                numberOfMonths={2}
+                numberOfMonths={isMobile ? 1 : 2}
               />
             </PopoverContent>
           </Popover>
         </div>
 
-        {/* Players Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredPlayers.map((player) => {
             const stats = playerStats[player.id] || {
@@ -277,7 +275,6 @@ export default function PlayersPage() {
                 </CardHeader>
 
                 <CardContent className="space-y-4">
-                  {/* Position and Contact */}
                   <div className="space-y-2">
                     {player.position && (
                       <div className="flex items-center space-x-2">
@@ -293,7 +290,6 @@ export default function PlayersPage() {
                     )}
                   </div>
 
-                  {/* Stats */}
                   <div className="grid grid-cols-2 gap-3 pt-3 border-t">
                     <div className="text-center">
                       <div className="text-2xl font-bold text-green-600">{stats.matches_played}</div>

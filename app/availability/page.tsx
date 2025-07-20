@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { useLanguage } from "@/contexts/language-context"
 import { supabase } from "@/lib/supabase"
@@ -36,7 +36,6 @@ interface Availability {
   }
 }
 
-// Helper function to format a Date object to a 'YYYY-MM-DD' string in the local timezone.
 const toYYYYMMDD = (date: Date) => {
   const year = date.getFullYear()
   const month = (date.getMonth() + 1).toString().padStart(2, "0")
@@ -57,33 +56,33 @@ export default function AvailabilityPage() {
     is_available: true,
     notes: "",
   })
+  const initialLoad = useRef(true);
 
-  useEffect(() => {
-    fetchAvailability()
-  }, [])
 
-  const fetchAvailability = async () => {
-    setLoading(true)
+  const fetchAvailability = useCallback(async () => {
+    if (initialLoad.current) {
+      setLoading(true)
+    }
     try {
       const { data } = await supabase
         .from("availability")
-        .select(
-          `
-          *,
-          profiles (
-            full_name
-          )
-        `
-        )
+        .select(`*, profiles(full_name)`)
         .order("date", { ascending: true })
 
       setAvailability(data || [])
     } catch (error) {
       console.error("Error fetching availability:", error)
     } finally {
-      setLoading(false)
+      if (initialLoad.current) {
+        setLoading(false)
+        initialLoad.current = false;
+      }
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    fetchAvailability()
+  }, [fetchAvailability])
 
   const handleSaveAvailability = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -257,7 +256,7 @@ export default function AvailabilityPage() {
           </Dialog>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
@@ -266,7 +265,7 @@ export default function AvailabilityPage() {
               </CardTitle>
               <CardDescription>{t("calendarDescription")}</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex justify-center">
               <Calendar
                 mode="single"
                 selected={selectedDate}

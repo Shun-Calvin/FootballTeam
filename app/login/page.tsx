@@ -22,7 +22,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
-  // Create user form
   const [newUser, setNewUser] = useState({
     email: "",
     username: "",
@@ -56,8 +55,9 @@ export default function LoginPage() {
     if (error) {
       setError(error.message)
       setLoading(false)
-    } 
-    // The useEffect will handle the redirect on successful sign-in
+    } else {
+      router.push("/dashboard")
+    }
   }
 
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -104,6 +104,7 @@ export default function LoginPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="en">{t("english")}</SelectItem>
+              <SelectItem value="zh">{t("simplifiedChinese")}</SelectItem>
               <SelectItem value="zh-TW">{t("traditionalChinese")}</SelectItem>
             </SelectContent>
           </Select>
