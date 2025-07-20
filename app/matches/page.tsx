@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { useLanguage } from "@/contexts/language-context"
 import { supabase } from "@/lib/supabase"
@@ -18,11 +18,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { Plus, Calendar, MapPin, Users, Video, Edit, Trash } from "lucide-react"
+import { Plus, Calendar, MapPin, Users, Video, Edit, Trash, Check, ChevronsUpDown } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { cn } from "@/lib/utils"
 
 interface Match {
   id: string
@@ -39,17 +42,19 @@ interface Match {
   created_by: string | null
 }
 
+interface PlayerProfile {
+  id: string
+  full_name: string
+  jersey_number: number | null
+}
+
 interface MatchParticipant {
   id: string
   match_id: string
   player_id: string
   status: string
   is_key_player: boolean
-  profiles: {
-    id: string
-    full_name: string
-    jersey_number: number | null
-  }
+  profiles: PlayerProfile
 }
 
 interface MatchEvent {
@@ -66,12 +71,14 @@ export default function MatchesPage() {
   const { t } = useLanguage()
   const [matches, setMatches] = useState<Match[]>([])
   const [participants, setParticipants] = useState<{ [key: string]: MatchParticipant[] }>({})
+  const [allPlayers, setAllPlayers] = useState<PlayerProfile[]>([])
   const [loading, setLoading] = useState(true)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
-  const [selectedMatch, setSelectedMatch] = useState<Match & { video_links: string[] } | null>(null)
+  const [selectedMatch, setSelectedMatch] = useState<(Match & { video_links: string[] }) | null>(null)
   const [matchEvents, setMatchEvents] = useState<Partial<MatchEvent>[]>([])
   const [editableParticipants, setEditableParticipants] = useState<MatchParticipant[]>([])
+  const [selectedKeyPlayers, setSelectedKeyPlayers] = useState<string[]>([])
   const [newMatch, setNewMatch] = useState({
     opponent_team: "",
     match_date: "",
@@ -81,43 +88,39 @@ export default function MatchesPage() {
     is_home_game: true,
   })
 
-  useEffect(() => {
-    fetchMatches()
-  }, [])
-
-  const fetchMatches = async () => {
+  const fetchMatchesAndParticipants = useCallback(async () => {
+    setLoading(true)
     try {
-      const { data: matchesData } = await supabase.from("matches").select("*").order("match_date", { ascending: false })
+      const [{ data: matchesData, error: matchesError }, { data: participantsData, error: participantsError }] = await Promise.all([
+        supabase.from("matches").select("*").order("match_date", { ascending: false }),
+        supabase.from("match_participants").select("*, profiles(id, full_name, jersey_number)")
+      ])
+
+      if (matchesError || participantsError) {
+        throw matchesError || participantsError
+      }
 
       if (matchesData) {
         setMatches(matchesData)
-
-        const participantsData: { [key: string]: MatchParticipant[] } = {}
-        for (const match of matchesData) {
-          const { data } = await supabase
-            .from("match_participants")
-            .select(
-              `
-              *,
-              profiles (
-                id,
-                full_name,
-                jersey_number
-              )
-            `
-            )
-            .eq("match_id", match.id)
-
-          participantsData[match.id] = data || []
-        }
-        setParticipants(participantsData)
+        const participantsByMatch = participantsData?.reduce((acc, p) => {
+          if (!acc[p.match_id]) {
+            acc[p.match_id] = []
+          }
+          acc[p.match_id].push(p)
+          return acc
+        }, {} as { [key: string]: MatchParticipant[] })
+        setParticipants(participantsByMatch || {})
       }
     } catch (error) {
-      console.error("Error fetching matches:", error)
+      console.error("Error fetching matches and participants:", error)
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    fetchMatchesAndParticipants()
+  }, [fetchMatchesAndParticipants])
 
   const handleCreateMatch = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -149,7 +152,7 @@ export default function MatchesPage() {
         away_jersey_color: "",
         is_home_game: true,
       })
-      fetchMatches()
+      fetchMatchesAndParticipants()
     } catch (error) {
       console.error("Error creating match:", error)
     }
@@ -164,7 +167,7 @@ export default function MatchesPage() {
         .eq("player_id", profile?.id)
 
       if (error) throw error
-      fetchMatches()
+      fetchMatchesAndParticipants()
     } catch (error) {
       console.error("Error updating participation:", error)
     }
@@ -180,6 +183,7 @@ export default function MatchesPage() {
     if (!selectedMatch) return
 
     try {
+      // 1. Update match details
       const { error: matchError } = await supabase
         .from("matches")
         .update({
@@ -190,9 +194,9 @@ export default function MatchesPage() {
           video_link: selectedMatch.video_links.filter(Boolean).join(","),
         })
         .eq("id", selectedMatch.id)
-
       if (matchError) throw matchError
 
+      // 2. Update match events
       for (const event of matchEvents) {
         const payload = { ...event, match_id: selectedMatch.id }
         if (!payload.id) {
@@ -202,16 +206,50 @@ export default function MatchesPage() {
         if (eventError) throw eventError
       }
 
-      for (const participant of editableParticipants) {
-        const { error: participantError } = await supabase
-          .from("match_participants")
-          .update({ status: participant.status })
-          .eq("id", participant.id)
-        if (participantError) throw participantError
+      // 3. Reconcile and update all participants for this match
+      const allPlayerIdsInvolved = new Set([
+        ...editableParticipants.map(p => p.player_id),
+        ...selectedKeyPlayers,
+      ]);
+
+      const upsertData = Array.from(allPlayerIdsInvolved).map(playerId => {
+          const existingParticipant = editableParticipants.find(p => p.player_id === playerId);
+          return {
+              match_id: selectedMatch.id,
+              player_id: playerId,
+              status: existingParticipant ? existingParticipant.status : 'pending', // Keep existing status or default
+              is_key_player: selectedKeyPlayers.includes(playerId),
+          };
+      });
+
+      // Also ensure players who are no longer key players are updated
+      const playersToUnset = editableParticipants
+        .filter(p => p.is_key_player && !selectedKeyPlayers.includes(p.player_id))
+        .map(p => p.player_id);
+      
+      for (const playerId of playersToUnset) {
+          const existing = upsertData.find(d => d.player_id === playerId);
+          if (existing) {
+              existing.is_key_player = false;
+          } else {
+              upsertData.push({
+                  match_id: selectedMatch.id,
+                  player_id: playerId,
+                  status: editableParticipants.find(p => p.player_id === playerId)!.status,
+                  is_key_player: false,
+              })
+          }
+      }
+
+      if (upsertData.length > 0) {
+          const { error: upsertError } = await supabase
+              .from('match_participants')
+              .upsert(upsertData, { onConflict: 'match_id, player_id' });
+          if (upsertError) throw upsertError;
       }
 
       setEditDialogOpen(false)
-      fetchMatches()
+      fetchMatchesAndParticipants()
     } catch (error) {
       console.error("Error updating match:", error)
     }
@@ -233,7 +271,7 @@ export default function MatchesPage() {
     if (window.confirm("Are you sure you want to delete this match?")) {
       try {
         await supabase.from("matches").delete().eq("id", matchId)
-        fetchMatches()
+        fetchMatchesAndParticipants()
       } catch (error) {
         console.error("Error deleting match:", error)
       }
@@ -241,14 +279,15 @@ export default function MatchesPage() {
   }
 
   const openEditDialog = async (match: Match) => {
-    setSelectedMatch({ ...match, video_links: match.video_link?.split(",") || [""] })
+    setSelectedMatch({ ...match, video_links: match.video_link?.split(",").filter(Boolean) || [""] })
     const { data: eventsData } = await supabase.from("match_events").select("*").eq("match_id", match.id)
-    const { data: participantsData } = await supabase
-      .from("match_participants")
-      .select("*, profiles (id, full_name)")
-      .eq("match_id", match.id)
+    const { data: participantsData } = await supabase.from("match_participants").select("*, profiles(id, full_name)").eq("match_id", match.id)
+    const { data: allPlayersData } = await supabase.from("profiles").select("id, full_name")
+
+    setAllPlayers(allPlayersData || [])
     setMatchEvents(eventsData || [])
     setEditableParticipants(participantsData || [])
+    setSelectedKeyPlayers(participantsData?.filter(p => p.is_key_player).map(p => p.player_id) || [])
     setEditDialogOpen(true)
   }
 
@@ -520,6 +559,50 @@ export default function MatchesPage() {
                   Add Video
                 </Button>
               </div>
+              <div className="space-y-2">
+                <Label>Key Players</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" className="w-full justify-between h-auto min-h-10">
+                      <div className="flex flex-wrap gap-1">
+                        {selectedKeyPlayers.length > 0 ? 
+                          selectedKeyPlayers.map(playerId => {
+                            const player = allPlayers.find(p => p.id === playerId);
+                            return <Badge key={playerId} variant="secondary">{player?.full_name}</Badge>
+                          })
+                          : "Select players..."}
+                      </div>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                    <Command>
+                      <CommandInput placeholder="Search players..." />
+                      <CommandEmpty>No players found.</CommandEmpty>
+                      <CommandGroup>
+                        <CommandList>
+                          {allPlayers.map((player) => (
+                            <CommandItem
+                              key={player.id}
+                              value={player.id}
+                              onSelect={(currentValue) => {
+                                setSelectedKeyPlayers((prev) =>
+                                  prev.includes(currentValue)
+                                    ? prev.filter((p) => p !== currentValue)
+                                    : [...prev, currentValue]
+                                )
+                              }}
+                            >
+                              <Check className={cn("mr-2 h-4 w-4", selectedKeyPlayers.includes(player.id) ? "opacity-100" : "opacity-0")} />
+                              {player.full_name}
+                            </CommandItem>
+                          ))}
+                        </CommandList>
+                      </CommandGroup>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
               <div>
                 <h4 className="font-semibold mb-2">Participants</h4>
                 {editableParticipants.map((p, i) => (
@@ -601,3 +684,4 @@ export default function MatchesPage() {
       )}
     </DashboardLayout>
   )
+}

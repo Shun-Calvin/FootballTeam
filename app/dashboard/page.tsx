@@ -37,49 +37,50 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!profile) return; // Don't fetch data if profile is not loaded yet
+
+    const fetchDashboardData = async () => {
+      try {
+        // Fetch upcoming matches
+        const { data: matches } = await supabase
+          .from("matches")
+          .select("*")
+          .gte("match_date", new Date().toISOString())
+          .order("match_date", { ascending: true })
+          .limit(5)
+
+        // Fetch total players
+        const { count: playersCount } = await supabase.from("profiles").select("*", { count: "exact", head: true })
+
+        // Fetch matches played
+        const { count: matchesPlayedCount } = await supabase
+          .from("matches")
+          .select("*", { count: "exact", head: true })
+          .eq("status", "completed")
+
+        // Fetch pending invitations for current user
+        const { count: pendingCount } = await supabase
+          .from("match_participants")
+          .select("*", { count: "exact", head: true })
+          .eq("player_id", profile.id)
+          .eq("status", "pending")
+
+        setStats({
+          upcomingMatches: matches?.length || 0,
+          totalPlayers: playersCount || 0,
+          matchesPlayed: matchesPlayedCount || 0,
+          pendingInvitations: pendingCount || 0,
+        })
+
+        setUpcomingMatches(matches || [])
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
     fetchDashboardData()
   }, [profile])
-
-  const fetchDashboardData = async () => {
-    try {
-      // Fetch upcoming matches
-      const { data: matches } = await supabase
-        .from("matches")
-        .select("*")
-        .gte("match_date", new Date().toISOString())
-        .order("match_date", { ascending: true })
-        .limit(5)
-
-      // Fetch total players
-      const { count: playersCount } = await supabase.from("profiles").select("*", { count: "exact", head: true })
-
-      // Fetch matches played
-      const { count: matchesPlayedCount } = await supabase
-        .from("matches")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "completed")
-
-      // Fetch pending invitations for current user
-      const { count: pendingCount } = await supabase
-        .from("match_participants")
-        .select("*", { count: "exact", head: true })
-        .eq("player_id", profile?.id)
-        .eq("status", "pending")
-
-      setStats({
-        upcomingMatches: matches?.length || 0,
-        totalPlayers: playersCount || 0,
-        matchesPlayed: matchesPlayedCount || 0,
-        pendingInvitations: pendingCount || 0,
-      })
-
-      setUpcomingMatches(matches || [])
-    } catch (error) {
-      console.error("Error fetching dashboard data:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   if (loading) {
     return (
@@ -166,12 +167,7 @@ export default function DashboardPage() {
                       <h3 className="font-semibold">vs {match.opponent_team}</h3>
                       <p className="text-sm text-gray-600">{match.location}</p>
                       <p className="text-sm text-gray-500">
-                        {new Date(match.match_date).toLocaleDateString("en-US", { timeZone: "Asia/Shanghai" })} at{" "}
-                        {new Date(match.match_date).toLocaleTimeString("en-US", {
-                          timeZone: "Asia/Shanghai",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                        {match.match_date.replace("T", " ").substring(0, 16)}
                       </p>
                     </div>
                     <Badge variant={match.status === "scheduled" ? "default" : "secondary"}>{match.status}</Badge>
