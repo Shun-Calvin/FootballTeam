@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react"
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react"
 import type { User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
 
@@ -52,7 +52,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  // Reusable session refresh logic
   const refreshSessionAndProfile = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession()
     setUser(session?.user ?? null)
@@ -65,7 +64,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false)
   }, [fetchProfile])
 
-  // Effect for initializing session and listening for auth changes
+  const refreshSessionAndProfileRef = useRef(refreshSessionAndProfile);
+  useEffect(() => {
+    refreshSessionAndProfileRef.current = refreshSessionAndProfile;
+  });
+
+
   useEffect(() => {
     refreshSessionAndProfile()
 
@@ -84,20 +88,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [fetchProfile, refreshSessionAndProfile])
 
-  // Effect for handling tab visibility to refresh the session and profile
   useEffect(() => {
-    const handleVisibilityChange = async () => {
+    const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        await refreshSessionAndProfile()
+        refreshSessionAndProfileRef.current();
       }
-    }
+    };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange)
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-    }
-  }, [refreshSessionAndProfile])
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   const signIn = async (email: string, password: string) => {
     setLoading(true)
