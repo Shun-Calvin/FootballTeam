@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react"
+import { createContext, useContext, useEffect, useState, useCallback } from "react"
 import type { User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
 
@@ -64,23 +63,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false)
   }, [fetchProfile])
 
-  const refreshSessionAndProfileRef = useRef(refreshSessionAndProfile);
   useEffect(() => {
-    refreshSessionAndProfileRef.current = refreshSessionAndProfile;
-  });
-
-
-  useEffect(() => {
+    // Initial check
     refreshSessionAndProfile()
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        await fetchProfile(session.user.id)
-      } else {
-        setProfile(null)
-      }
-      setSessionKey(prev => prev + 1)
+    // Set up the auth state change listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      // Use setTimeout to avoid deadlocks
+      setTimeout(() => {
+        setUser(session?.user ?? null)
+        if (session?.user) {
+          fetchProfile(session.user.id)
+        } else {
+          setProfile(null)
+        }
+        setSessionKey(prev => prev + 1)
+      }, 0)
     })
 
     return () => {
@@ -91,16 +89,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        refreshSessionAndProfileRef.current();
+        // Use setTimeout to avoid deadlocks
+        setTimeout(() => {
+          refreshSessionAndProfile()
+        }, 0)
       }
-    };
+    }
+    
+    // Add event listeners for both focus and visibility change
+    window.addEventListener('focus', refreshSessionAndProfile)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
+    // Clean up listeners on component unmount
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, []);
+      window.removeEventListener('focus', refreshSessionAndProfile)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [refreshSessionAndProfile])
 
   const signIn = async (email: string, password: string) => {
     setLoading(true)
