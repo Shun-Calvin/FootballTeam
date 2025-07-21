@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { createContext, useContext, useEffect, useState } from "react"
+import { createContext, useContext, useEffect, useState, useCallback } from "react"
 import type { User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
 
@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [sessionKey, setSessionKey] = useState(0)
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = useCallback(async (userId: string) => {
     const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single()
     if (error) {
       console.error("Error fetching profile:", error)
@@ -50,10 +50,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } else {
       setProfile(data)
     }
-  }
+  }, [])
 
   // Reusable session refresh logic
-  const refreshSessionAndProfile = async () => {
+  const refreshSessionAndProfile = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession()
     setUser(session?.user ?? null)
     if (session?.user) {
@@ -63,7 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     setSessionKey(prev => prev + 1)
     setLoading(false)
-  }
+  }, [fetchProfile])
 
   // Effect for initializing session and listening for auth changes
   useEffect(() => {
@@ -82,7 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe()
     }
-  }, [])
+  }, [fetchProfile, refreshSessionAndProfile])
 
   // Effect for handling tab visibility to refresh the session and profile
   useEffect(() => {
@@ -97,7 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, []) // This effect also runs once on mount
+  }, [refreshSessionAndProfile])
 
   const signIn = async (email: string, password: string) => {
     setLoading(true)
