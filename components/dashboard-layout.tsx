@@ -10,7 +10,7 @@ import { useLanguage } from "@/contexts/language-context"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Home, Calendar, Users, ClipboardList, User, LogOut, Menu, Globe } from "lucide-react"
+import { Home, Calendar, Users, ClipboardList, User, LogOut, Menu, Globe, UserPlus } from "lucide-react"
 import type { Language } from "@/lib/i18n"
 
 const navigation = [
@@ -19,6 +19,7 @@ const navigation = [
   { name: "players", href: "/players", icon: Users },
   { name: "availability", href: "/availability", icon: ClipboardList },
   { name: "profile", href: "/profile", icon: User },
+  { name: "createUser", href: "/create-user", icon: UserPlus },
 ]
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -77,6 +78,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="en">{t("english")}</SelectItem>
+              <SelectItem value="zh">{t("simplifiedChinese")}</SelectItem>
               <SelectItem value="zh-TW">{t("traditionalChinese")}</SelectItem>
             </SelectContent>
           </Select>

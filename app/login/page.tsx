@@ -11,7 +11,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import { Globe } from "lucide-react"
 import type { Language } from "@/types/language"
@@ -22,20 +21,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
-  const [newUser, setNewUser] = useState({
-    email: "",
-    username: "",
-    password: "",
-    full_name: "",
-    jersey_number: "",
-    position: "",
-    phone: "",
-  })
-  const [createLoading, setCreateLoading] = useState(false)
-  const [createError, setCreateError] = useState("")
-  const [createSuccess, setCreateSuccess] = useState(false)
-
-  const { signIn, createUser, user, loading: authLoading } = useAuth()
+  const { signIn, user, loading: authLoading } = useAuth()
   const { language, setLanguage, t } = useLanguage()
   const router = useRouter()
 
@@ -55,42 +41,7 @@ export default function LoginPage() {
     if (error) {
       setError(error.message)
       setLoading(false)
-    } else {
-      router.push("/dashboard")
     }
-  }
-
-  const handleCreateUser = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setCreateLoading(true)
-    setCreateError("")
-
-    const { error } = await createUser({
-      email: newUser.email,
-      username: newUser.username,
-      password: newUser.password,
-      full_name: newUser.full_name,
-      jersey_number: newUser.jersey_number ? Number.parseInt(newUser.jersey_number) : undefined,
-      position: newUser.position || undefined,
-      phone: newUser.phone || undefined,
-    })
-
-    if (error) {
-      setCreateError(error.message)
-    } else {
-      setCreateSuccess(true)
-      setNewUser({
-        email: "",
-        username: "",
-        password: "",
-        full_name: "",
-        jersey_number: "",
-        position: "",
-        phone: "",
-      })
-    }
-
-    setCreateLoading(false)
   }
 
   return (
@@ -104,101 +55,38 @@ export default function LoginPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="en">{t("english")}</SelectItem>
+              <SelectItem value="zh">{t("simplifiedChinese")}</SelectItem>
               <SelectItem value="zh-TW">{t("traditionalChinese")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
-        <Tabs defaultValue="login" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="login">{t("login")}</TabsTrigger>
-            <TabsTrigger value="create">{t("createUser")}</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="login">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t("login")}</CardTitle>
-                <CardDescription>{t("loginDescription")}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSignIn} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">{t("email")}</Label>
-                    <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="password">{t("password")}</Label>
-                    <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-                  </div>
-                  {error && (
-                    <Alert variant="destructive">
-                      <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                  )}
-                  <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? t("loading") : t("signIn")}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="create">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t("createUser")}</CardTitle>
-                <CardDescription>{t("createUserDescription")}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {createSuccess ? (
-                  <Alert>
-                    <AlertDescription>{t("createUserSuccess")}</AlertDescription>
-                  </Alert>
-                ) : (
-                  <form onSubmit={handleCreateUser} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="new-email">{t("email")}</Label>
-                      <Input id="new-email" type="email" value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} required />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="new-username">{t("username")}</Label>
-                      <Input id="new-username" type="text" value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value })} required />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="new-password">{t("password")}</Label>
-                      <Input id="new-password" type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} required />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="full-name">{t("fullName")}</Label>
-                      <Input id="full-name" type="text" value={newUser.full_name} onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })} required />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="jersey-number">{t("jerseyNumber")}</Label>
-                      <Input id="jersey-number" type="number" value={newUser.jersey_number} onChange={(e) => setNewUser({ ...newUser, jersey_number: e.target.value })} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="position">{t("position")}</Label>
-                      <Input id="position" type="text" value={newUser.position} onChange={(e) => setNewUser({ ...newUser, position: e.target.value })} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="phone">{t("phone")}</Label>
-                      <Input id="phone" type="tel" value={newUser.phone} onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })} />
-                    </div>
-                    {createError && (
-                      <Alert variant="destructive">
-                        <AlertDescription>{createError}</AlertDescription>
-                      </Alert>
-                    )}
-                    <Button type="submit" className="w-full" disabled={createLoading}>
-                      {createLoading ? t("loading") : t("create")}
-                    </Button>
-                  </form>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("login")}</CardTitle>
+            <CardDescription>{t("loginDescription")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSignIn} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">{t("email")}</Label>
+                <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">{t("password")}</Label>
+                <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+              </div>
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? t("loading") : t("signIn")}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
