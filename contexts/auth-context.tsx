@@ -20,7 +20,6 @@ interface AuthContextType {
   user: User | null
   profile: Profile | null
   loading: boolean
-  sessionKey: number // New session key to trigger re-fetches
   signIn: (email: string, password: string) => Promise<{ error: any }>
   signOut: () => Promise<void>
   createUser: (userData: {
@@ -40,15 +39,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
-  const [sessionKey, setSessionKey] = useState(0) // New session key state
 
   const fetchProfile = async (userId: string) => {
-    const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single()
-    if (error) {
+    try {
+      const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single()
+      if (error) throw error
+      setProfile(data)
+    } catch (error) {
       console.error("Error fetching profile:", error)
       setProfile(null)
-    } else {
-      setProfile(data)
     }
   }
 
@@ -59,9 +58,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (session?.user) {
         await fetchProfile(session.user.id)
       }
-      setSessionKey(prev => prev + 1); // Trigger initial data load on pages
       setLoading(false)
     }
+    useEffect(() => {
+      // 定義一個處理函式，當分頁變返可見時會被呼叫
+      const handleVisibilityChange = async () => {
+        // document.hidden 會話俾我哋知個分頁係咪喺背景
+        if (!document.hidden) {
+          // 當分頁由背景切換返嚟時，主動同 Supabase 講：
+          // 「喂，我返嚟喇，唔該幫我重新整理一下 session 狀態。」
+          // Supabase client 會喺底層檢查 token 有冇過期，有需要嘅話會自動刷新。
+          // 呢個操作會確保我哋嘅 auth 狀態係最新嘅。
+          await supabase.auth.getSession()
+        }
+      }
+
+      // 喺 document 上面加一個事件監聽器，監聽 'visibilitychange' 事件
+      document.addEventListener('visibilitychange', handleVisibilityChange)
+
+      // 當組件被 unmount (例如用戶離開網站) 時，
+      // 清理返個監聽器，避免 memory leak
+      return () => {
+        document.removeEventListener('visibilitychange', handleVisibilityChange)
+      }
+    }, []) // 空依賴陣列，確保呢個 effect 只會喺組件 mount 時執行一次
 
     initializeSession()
 
@@ -72,7 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setProfile(null)
       }
-      setSessionKey(prev => prev + 1); // Trigger re-fetch on auth changes
+      setLoading(false)
     })
 
     return () => {
@@ -81,22 +101,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const signIn = async (email: string, password: string) => {
-    setLoading(true)
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (data.user) {
       await fetchProfile(data.user.id)
-      setSessionKey(prev => prev + 1); // Trigger re-fetch after sign in
     }
-    setLoading(false)
     return { error }
   }
 
   const signOut = async () => {
-    setLoading(true)
     await supabase.auth.signOut()
-    setUser(null)
     setProfile(null)
-    setLoading(false)
+    setUser(null)
   }
 
   const createUser = async (userData: {
@@ -140,7 +155,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     profile,
     loading,
-    sessionKey,
     signIn,
     signOut,
     createUser,
