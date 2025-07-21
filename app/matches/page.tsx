@@ -433,6 +433,7 @@ export default function MatchesPage() {
               const keyPlayers = participantList.filter((p) => p.is_key_player)
               const isPast = new Date(match.match_date) < new Date();
               const events = matchEventsByMatch[match.id] || [];
+              const showScore = ['won', 'lost', 'draw'].includes(match.status || "");
 
               return (
                 <Card key={match.id}>
@@ -454,12 +455,12 @@ export default function MatchesPage() {
                           </span>
                         </CardDescription>
                       </div>
-                      {match.status === "completed" && (
+                      {showScore && (
                         <div className="text-right">
                           <div className="text-2xl font-bold">
                             {match.final_score_home} - {match.final_score_away}
                           </div>
-                          <div className="text-sm text-gray-500">Final Score</div>
+                          <div className="text-sm text-gray-500">{t("finalScore")}</div>
                         </div>
                       )}
                     </div>
@@ -615,11 +616,11 @@ export default function MatchesPage() {
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="scheduled">Scheduled</SelectItem>
-                            <SelectItem value="won">Won</SelectItem>
-                            <SelectItem value="lost">Lost</SelectItem>
-                            <SelectItem value="draw">Draw</SelectItem>
-                            <SelectItem value="cancelled">Cancelled</SelectItem>
+                            <SelectItem value="scheduled">{t("scheduled")}</SelectItem>
+                            <SelectItem value="won">{t("won")}</SelectItem>
+                            <SelectItem value="lost">{t("lost")}</SelectItem>
+                            <SelectItem value="draw">{t("draw")}</SelectItem>
+                            <SelectItem value="cancelled">{t("cancelled")}</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
