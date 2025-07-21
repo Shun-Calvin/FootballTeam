@@ -52,6 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  // Effect for initializing session and listening for auth changes
   useEffect(() => {
     const initializeSession = async () => {
       const { data: { session } } = await supabase.auth.getSession()
@@ -78,11 +79,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe()
     }
-  }, [])
+  }, []) // This effect runs once on mount
 
+  // Effect for handling tab visibility to refresh the session
   useEffect(() => {
     const handleVisibilityChange = async () => {
       if (document.visibilityState === 'visible') {
+        // This tells the Supabase client to check the session and refresh if needed.
+        // If the session has changed, it will trigger the onAuthStateChange listener above.
         await supabase.auth.getSession()
       }
     }
@@ -92,7 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [])
+  }, []) // This effect also runs once on mount
 
   const signIn = async (email: string, password: string) => {
     setLoading(true)
