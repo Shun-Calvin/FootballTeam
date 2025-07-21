@@ -52,19 +52,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  // Reusable session refresh logic
+  const refreshSessionAndProfile = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    setUser(session?.user ?? null)
+    if (session?.user) {
+      await fetchProfile(session.user.id)
+    } else {
+      setProfile(null)
+    }
+    setSessionKey(prev => prev + 1)
+    setLoading(false)
+  }
+
   // Effect for initializing session and listening for auth changes
   useEffect(() => {
-    const initializeSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        await fetchProfile(session.user.id)
-      }
-      setSessionKey(prev => prev + 1);
-      setLoading(false)
-    }
-
-    initializeSession()
+    refreshSessionAndProfile()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null)
@@ -73,21 +76,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setProfile(null)
       }
-      setSessionKey(prev => prev + 1);
+      setSessionKey(prev => prev + 1)
     })
 
     return () => {
       subscription.unsubscribe()
     }
-  }, []) // This effect runs once on mount
+  }, [])
 
-  // Effect for handling tab visibility to refresh the session
+  // Effect for handling tab visibility to refresh the session and profile
   useEffect(() => {
     const handleVisibilityChange = async () => {
       if (document.visibilityState === 'visible') {
-        // This tells the Supabase client to check the session and refresh if needed.
-        // If the session has changed, it will trigger the onAuthStateChange listener above.
-        await supabase.auth.getSession()
+        await refreshSessionAndProfile()
       }
     }
 
