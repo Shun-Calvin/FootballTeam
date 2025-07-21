@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useMemo } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { useLanguage } from "@/contexts/language-context"
 import { supabase } from "@/lib/supabase"
@@ -23,9 +23,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { Plus, Calendar, MapPin, Users, Video, Edit, Trash, Check, ChevronsUpDown } from "lucide-react"
+import { Plus, Calendar as CalendarIcon, MapPin, Users, Video, Edit, Trash, Check, ChevronsUpDown, Search, Goal } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
+import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination"
 
 interface Match {
   id: string
@@ -64,6 +65,7 @@ interface MatchEvent {
   player_id: string
   event_time: number
   description: string | null
+  profiles: { full_name: string } | null
 }
 
 export default function MatchesPage() {
@@ -72,6 +74,7 @@ export default function MatchesPage() {
   const [matches, setMatches] = useState<Match[]>([])
   const [participants, setParticipants] = useState<{ [key: string]: MatchParticipant[] }>({})
   const [allPlayers, setAllPlayers] = useState<PlayerProfile[]>([])
+  const [matchEventsByMatch, setMatchEventsByMatch] = useState<{ [key: string]: MatchEvent[] }>({});
   const [loading, setLoading] = useState(true)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
@@ -87,18 +90,26 @@ export default function MatchesPage() {
     away_jersey_color: "",
     is_home_game: true,
   })
+  const [searchTerm, setSearchTerm] = useState("")
+  const [currentPage, setCurrentPage] = useState(1);
+  const matchesPerPage = 5;
 
   const fetchMatchesAndParticipants = useCallback(async () => {
     if (!profile) return;
     setLoading(true)
     try {
-      const [{ data: matchesData, error: matchesError }, { data: participantsData, error: participantsError }] = await Promise.all([
+      const [
+        { data: matchesData, error: matchesError }, 
+        { data: participantsData, error: participantsError },
+        { data: eventsData, error: eventsError }
+      ] = await Promise.all([
         supabase.from("matches").select("*").order("match_date", { ascending: false }),
-        supabase.from("match_participants").select("*, profiles(id, full_name, jersey_number)")
+        supabase.from("match_participants").select("*, profiles(id, full_name, jersey_number)"),
+        supabase.from("match_events").select("*, profiles(full_name)")
       ])
 
-      if (matchesError || participantsError) {
-        throw matchesError || participantsError
+      if (matchesError || participantsError || eventsError) {
+        throw matchesError || participantsError || eventsError
       }
 
       if (matchesData) {
@@ -111,9 +122,18 @@ export default function MatchesPage() {
           return acc
         }, {} as { [key: string]: MatchParticipant[] })
         setParticipants(participantsByMatch || {})
+
+        const eventsByMatch = eventsData?.reduce((acc, e) => {
+          if (!acc[e.match_id]) {
+            acc[e.match_id] = []
+          }
+          acc[e.match_id].push(e)
+          return acc
+        }, {} as { [key: string]: MatchEvent[] })
+        setMatchEventsByMatch(eventsByMatch || {})
       }
     } catch (error) {
-      console.error("Error fetching matches and participants:", error)
+      console.error("Error fetching data:", error)
     } finally {
       setLoading(false)
     }
@@ -187,7 +207,7 @@ export default function MatchesPage() {
         .update({
           opponent_team: selectedMatch.opponent_team,
           location: selectedMatch.location,
-          match_date: selectedMatch.match_date,
+          status: selectedMatch.status,
           final_score_home: selectedMatch.final_score_home,
           final_score_away: selectedMatch.final_score_away,
           video_link: selectedMatch.video_links.filter(Boolean).join(","),
@@ -303,6 +323,15 @@ export default function MatchesPage() {
     setSelectedMatch({ ...selectedMatch, video_links: newLinks })
   }
 
+  const filteredMatches = useMemo(() => {
+    return matches.filter(match => 
+      match.opponent_team.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [matches, searchTerm]);
+
+  const totalPages = Math.ceil(filteredMatches.length / matchesPerPage);
+  const paginatedMatches = filteredMatches.slice((currentPage - 1) * matchesPerPage, currentPage * matchesPerPage);
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -377,21 +406,33 @@ export default function MatchesPage() {
           </Dialog>
         </div>
 
+        <div className="relative w-full md:max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Input
+            placeholder={t("searchPlayers")}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+
         <div className="space-y-4">
-          {matches.length === 0 ? (
+          {paginatedMatches.length === 0 ? (
             <Card>
               <CardContent className="text-center py-8">
-                <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <CalendarIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-500">{t("noMatchesScheduled")}</p>
                 <p className="text-sm text-gray-400 mt-1">{t("firstMatchPrompt")}</p>
               </CardContent>
             </Card>
           ) : (
-            matches.map((match) => {
+            paginatedMatches.map((match) => {
               const participantList = participants[match.id] || []
               const userStatus = getParticipationStatus(match.id)
               const acceptedCount = participantList.filter((p) => p.status === "accepted").length
               const keyPlayers = participantList.filter((p) => p.is_key_player)
+              const isPast = new Date(match.match_date) < new Date();
+              const events = matchEventsByMatch[match.id] || [];
 
               return (
                 <Card key={match.id}>
@@ -400,11 +441,11 @@ export default function MatchesPage() {
                       <div>
                         <CardTitle className="flex items-center space-x-2">
                           <span>{t("vs", { opponent_team: match.opponent_team })}</span>
-                          <Badge variant={match.status === "completed" ? "default" : "secondary"}>{match.status}</Badge>
+                          <Badge variant={match.status === "won" ? "default" : match.status === "lost" || match.status === "cancelled" || (isPast && match.status === 'scheduled') ? "destructive" : "secondary"}>{isPast && match.status === 'scheduled' ? t('pendingUpdate') : t(match.status as any)}</Badge>
                         </CardTitle>
                         <CardDescription className="flex items-center space-x-4 mt-2">
                           <span className="flex items-center">
-                            <Calendar className="h-4 w-4 mr-1" />
+                            <CalendarIcon className="h-4 w-4 mr-1" />
                             {match.match_date.replace("T", " ").substring(0, 16)}
                           </span>
                           <span className="flex items-center">
@@ -465,6 +506,23 @@ export default function MatchesPage() {
                         </div>
                       </div>
                     </div>
+                     {['won', 'lost', 'draw'].includes(match.status || "") && events.length > 0 && (
+                      <div className="pt-4 border-t">
+                        <h4 className="font-semibold mb-2 flex items-center">
+                            <Goal className="h-4 w-4 mr-1" />
+                            {t("matchEvents")}
+                        </h4>
+                        <div className="space-y-1 text-sm">
+                          {events.map((event) => (
+                            <div key={event.id} className="flex items-center space-x-2">
+                              <span>{event.event_time}'</span>
+                              <Badge variant={event.event_type === 'Goal' ? 'default' : 'secondary'}>{t(event.event_type.toLowerCase() as any)}</Badge>
+                              <span>{event.profiles?.full_name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     {match.video_link && (
                       <div>
                         <h4 className="font-semibold mb-2 flex items-center">
@@ -512,6 +570,26 @@ export default function MatchesPage() {
             })
           )}
         </div>
+        
+        {totalPages > 1 && (
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); setCurrentPage(p => Math.max(1, p - 1))}} />
+              </PaginationItem>
+              {[...Array(totalPages)].map((_, i) => (
+                <PaginationItem key={i}>
+                  <PaginationLink href="#" onClick={(e) => { e.preventDefault(); setCurrentPage(i + 1)}} isActive={currentPage === i + 1}>
+                    {i + 1}
+                  </PaginationLink>
+                </PaginationItem>
+              ))}
+              <PaginationItem>
+                <PaginationNext href="#" onClick={(e) => { e.preventDefault(); setCurrentPage(p => Math.min(totalPages, p + 1))}} />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        )}
       </div>
       {selectedMatch && (
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
@@ -526,13 +604,24 @@ export default function MatchesPage() {
                   <Label htmlFor="opponent-team">{t("opponentTeam")}</Label>
                   <Input id="opponent-team" value={selectedMatch.opponent_team} onChange={(e) => setSelectedMatch({ ...selectedMatch, opponent_team: e.target.value })} />
                 </div>
-                 <div className="space-y-2">
-                  <Label htmlFor="match-date">{t("matchDate")}</Label>
-                  <Input id="match-date" type="datetime-local" value={selectedMatch.match_date.substring(0, 16)} onChange={(e) => setSelectedMatch({ ...selectedMatch, match_date: e.target.value })} />
-                </div>
                 <div className="space-y-2">
                   <Label htmlFor="location">{t("location")}</Label>
                   <Input id="location" value={selectedMatch.location} onChange={(e) => setSelectedMatch({ ...selectedMatch, location: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="status">Status</Label>
+                    <Select value={selectedMatch.status || 'scheduled'} onValueChange={(value) => setSelectedMatch({ ...selectedMatch, status: value })}>
+                        <SelectTrigger>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="scheduled">Scheduled</SelectItem>
+                            <SelectItem value="won">Won</SelectItem>
+                            <SelectItem value="lost">Lost</SelectItem>
+                            <SelectItem value="draw">Draw</SelectItem>
+                            <SelectItem value="cancelled">Cancelled</SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">

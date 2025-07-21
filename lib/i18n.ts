@@ -404,7 +404,7 @@ export const translations = {
     addVideo: "新增影片",
     participants: "參與者",
     saveChanges: "儲存變更",
-    selectPlayers: "選擇球員...",
+    selectPlayers: "選擇球隊...",
     playersSelected: "已選擇 {count} 位",
 
     // Match Events
@@ -423,7 +423,7 @@ export const translations = {
 
     // Players
     playerRosterStats: "球隊名單與球員統計",
-    searchPlayers: "搜尋球員...",
+    searchPlayers: "搜尋...",
     you: "您",
     goals: "進球",
     assists: "助攻",
