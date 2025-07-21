@@ -54,7 +54,7 @@ interface MatchParticipant {
   player_id: string
   status: string
   is_key_player: boolean
-  profiles: PlayerProfile
+  profiles: PlayerProfile | null
 }
 
 interface MatchEvent {
@@ -89,7 +89,7 @@ export default function MatchesPage() {
   })
 
   const fetchMatchesAndParticipants = useCallback(async () => {
-    if (!profile) return; // Don't fetch data until the user profile is available
+    if (!profile) return;
     setLoading(true)
     try {
       const [{ data: matchesData, error: matchesError }, { data: participantsData, error: participantsError }] = await Promise.all([
@@ -121,7 +121,7 @@ export default function MatchesPage() {
 
   useEffect(() => {
     fetchMatchesAndParticipants()
-  }, [fetchMatchesAndParticipants, sessionKey]) // Add sessionKey as a dependency
+  }, [fetchMatchesAndParticipants, sessionKey])
 
   const handleCreateMatch = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -182,12 +182,12 @@ export default function MatchesPage() {
     if (!selectedMatch) return
 
     try {
-      // 1. Update match details
       const { error: matchError } = await supabase
         .from("matches")
         .update({
           opponent_team: selectedMatch.opponent_team,
           location: selectedMatch.location,
+          match_date: selectedMatch.match_date,
           final_score_home: selectedMatch.final_score_home,
           final_score_away: selectedMatch.final_score_away,
           video_link: selectedMatch.video_links.filter(Boolean).join(","),
@@ -195,7 +195,6 @@ export default function MatchesPage() {
         .eq("id", selectedMatch.id)
       if (matchError) throw matchError
 
-      // 2. Update match events
       for (const event of matchEvents) {
         const payload = { ...event, match_id: selectedMatch.id }
         if (!payload.id) {
@@ -205,7 +204,6 @@ export default function MatchesPage() {
         if (eventError) throw eventError
       }
 
-      // 3. Reconcile and update all participants for this match
       const allPlayerIdsInvolved = new Set([
         ...editableParticipants.map(p => p.player_id),
         ...selectedKeyPlayers,
@@ -216,12 +214,11 @@ export default function MatchesPage() {
           return {
               match_id: selectedMatch.id,
               player_id: playerId,
-              status: existingParticipant ? existingParticipant.status : 'pending', // Keep existing status or default
+              status: existingParticipant ? existingParticipant.status : 'pending',
               is_key_player: selectedKeyPlayers.includes(playerId),
           };
       });
 
-      // Also ensure players who are no longer key players are updated
       const playersToUnset = editableParticipants
         .filter(p => p.is_key_player && !selectedKeyPlayers.includes(p.player_id))
         .map(p => p.player_id);
@@ -443,7 +440,7 @@ export default function MatchesPage() {
                         <div className="space-y-1 text-sm">
                           {participantList.slice(0, 3).map((participant) => (
                             <div key={participant.id} className="flex items-center justify-between">
-                              <span>{participant.profiles.full_name}</span>
+                              <span>{participant.profiles?.full_name}</span>
                               <Badge variant={participant.status === "accepted" ? "default" : participant.status === "declined" ? "destructive" : "secondary"} className="text-xs">
                                 {t(participant.status as any)}
                               </Badge>
@@ -460,8 +457,8 @@ export default function MatchesPage() {
                           ) : (
                             keyPlayers.map((player) => (
                               <div key={player.id}>
-                                {player.profiles.full_name}
-                                {player.profiles.jersey_number && <span className="text-gray-500"> #{player.profiles.jersey_number}</span>}
+                                {player.profiles?.full_name}
+                                {player.profiles?.jersey_number && <span className="text-gray-500"> #{player.profiles.jersey_number}</span>}
                               </div>
                             ))
                           )}
@@ -528,6 +525,10 @@ export default function MatchesPage() {
                 <div className="space-y-2">
                   <Label htmlFor="opponent-team">{t("opponentTeam")}</Label>
                   <Input id="opponent-team" value={selectedMatch.opponent_team} onChange={(e) => setSelectedMatch({ ...selectedMatch, opponent_team: e.target.value })} />
+                </div>
+                 <div className="space-y-2">
+                  <Label htmlFor="match-date">{t("matchDate")}</Label>
+                  <Input id="match-date" type="datetime-local" value={selectedMatch.match_date.substring(0, 16)} onChange={(e) => setSelectedMatch({ ...selectedMatch, match_date: e.target.value })} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="location">{t("location")}</Label>
@@ -606,7 +607,7 @@ export default function MatchesPage() {
                 <h4 className="font-semibold mb-2">{t("participants")}</h4>
                 {editableParticipants.map((p, i) => (
                   <div key={p.id} className="grid grid-cols-2 gap-2 mb-2">
-                    <p>{p.profiles.full_name}</p>
+                    <p>{p.profiles?.full_name}</p>
                     <Select value={p.status} onValueChange={(value) => {
                       const newParticipants = [...editableParticipants]
                       newParticipants[i].status = value
@@ -652,7 +653,7 @@ export default function MatchesPage() {
                       <SelectContent>
                         {editableParticipants.map((p) => (
                           <SelectItem key={p.player_id} value={p.player_id}>
-                            {p.profiles.full_name}
+                            {p.profiles?.full_name}
                           </SelectItem>
                         ))}
                       </SelectContent>

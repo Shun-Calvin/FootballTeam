@@ -22,7 +22,6 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Switch } from "@/components/ui/switch"
 import { CalendarDays, Plus, Edit, Trash } from "lucide-react"
 
 interface Availability {
@@ -44,7 +43,7 @@ const toYYYYMMDD = (date: Date) => {
 }
 
 export default function AvailabilityPage() {
-  const { profile } = useAuth()
+  const { profile, sessionKey } = useAuth()
   const { t } = useLanguage()
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date())
   const [availability, setAvailability] = useState<Availability[]>([])
@@ -53,11 +52,11 @@ export default function AvailabilityPage() {
   const [editingAvailability, setEditingAvailability] = useState<Availability | null>(null)
   const [newAvailability, setNewAvailability] = useState({
     date: "",
-    is_available: true,
     notes: "",
   })
 
   const fetchAvailability = useCallback(async () => {
+    if (!profile) return;
     setLoading(true)
     try {
       const { data } = await supabase
@@ -71,32 +70,24 @@ export default function AvailabilityPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [profile])
 
   useEffect(() => {
     fetchAvailability()
-  }, [fetchAvailability])
+  }, [fetchAvailability, sessionKey])
 
   const handleSaveAvailability = async (e: React.FormEvent) => {
     e.preventDefault()
 
     try {
-      const payload = editingAvailability
-        ? {
-            id: editingAvailability.id,
-            player_id: editingAvailability.player_id,
-            date: editingAvailability.date,
-            is_available: editingAvailability.is_available,
-            notes: editingAvailability.notes,
-          }
-        : {
-            player_id: profile?.id,
-            date: newAvailability.date,
-            is_available: newAvailability.is_available,
-            notes: newAvailability.notes,
-          }
+      const payload = {
+        player_id: profile?.id,
+        date: editingAvailability ? editingAvailability.date : newAvailability.date,
+        is_available: false, // Always set to unavailable
+        notes: editingAvailability ? editingAvailability.notes || "" : newAvailability.notes || "",
+      }
 
-      const { error } = await supabase.from("availability").upsert(payload, { onConflict: 'player_id, date' })
+      const { error } = await supabase.from("availability").upsert(payload, { onConflict: 'player_id,date' })
 
       if (error) throw error
 
@@ -104,7 +95,6 @@ export default function AvailabilityPage() {
       setEditingAvailability(null)
       setNewAvailability({
         date: "",
-        is_available: true,
         notes: "",
       })
       fetchAvailability()
@@ -138,11 +128,6 @@ export default function AvailabilityPage() {
     const hasUnavailable = todaysAvailability.some(a => !a.is_available);
     if (hasUnavailable) {
       return { available: false, unavailable: true };
-    }
-
-    const hasAvailable = todaysAvailability.some(a => a.is_available);
-    if (hasAvailable) {
-        return { available: true, unavailable: false };
     }
 
     return { available: false, unavailable: false };
@@ -196,7 +181,7 @@ export default function AvailabilityPage() {
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
                 <DialogTitle>{editingAvailability ? t("editAvailability") : t("setAvailability")}</DialogTitle>
-                <DialogDescription>{editingAvailability ? t("updateAvailabilityDescription") : t("setAvailabilityDescription")}</DialogDescription>
+                <DialogDescription>{t("setAvailabilityDescription")}</DialogDescription>
               </DialogHeader>
               <form onSubmit={handleSaveAvailability} className="space-y-4">
                 <div className="space-y-2">
@@ -212,18 +197,6 @@ export default function AvailabilityPage() {
                     }
                     required
                   />
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="available"
-                    checked={editingAvailability ? editingAvailability.is_available : newAvailability.is_available}
-                    onCheckedChange={(checked) =>
-                      editingAvailability
-                        ? setEditingAvailability({ ...editingAvailability, is_available: checked })
-                        : setNewAvailability({ ...newAvailability, is_available: checked })
-                    }
-                  />
-                  <Label htmlFor="available">{t("available")}</Label>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="notes">{t("notesOptional")}</Label>
@@ -258,18 +231,16 @@ export default function AvailabilityPage() {
               </CardTitle>
               <CardDescription>{t("calendarDescription")}</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex justify-center">
               <Calendar
                 mode="single"
                 selected={selectedDate}
                 onSelect={setSelectedDate}
                 className="rounded-md border"
                 modifiers={{
-                  available: (date) => getTeamAvailabilityStatus(date).available,
                   unavailable: (date) => getTeamAvailabilityStatus(date).unavailable,
                 }}
                 modifiersStyles={{
-                  available: { backgroundColor: "#dcfce7", color: "#166534" },
                   unavailable: { backgroundColor: "#fecaca", color: "#dc2626" },
                 }}
               />
@@ -293,7 +264,7 @@ export default function AvailabilityPage() {
                           <div className="flex items-center justify-between mb-2">
                             <span className="font-medium">{avail.profiles.full_name}</span>
                             <div className="flex items-center space-x-2">
-                              <Badge variant={avail.is_available ? "default" : "destructive"}>{avail.is_available ? t("available") : t("unavailable")}</Badge>
+                              <Badge variant={"destructive"}>{t("unavailable")}</Badge>
                               {avail.player_id === profile?.id && (
                                 <>
                                   <Button
@@ -347,11 +318,11 @@ export default function AvailabilityPage() {
                     </div>
                     <div className="flex items-center space-x-2">
                       {userAvailability ? (
-                        <Badge variant={userAvailability.is_available ? "default" : "destructive"}>
-                          {userAvailability.is_available ? t("available") : t("unavailable")}
+                        <Badge variant={"destructive"}>
+                          {t("unavailable")}
                         </Badge>
                       ) : (
-                        <Badge variant="outline">{t("notSet")}</Badge>
+                        <Badge variant="outline">{t("available")}</Badge>
                       )}
                     </div>
                   </div>

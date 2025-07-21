@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useMemo } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { useLanguage } from "@/contexts/language-context"
 import { supabase } from "@/lib/supabase"
@@ -9,13 +9,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Users, Search, Phone, MapPin, Calendar as CalendarIcon } from "lucide-react"
+import { Users, Search, Phone, MapPin, Calendar as CalendarIcon, ArrowUpDown, List, LayoutGrid } from "lucide-react"
 import { DateRange } from "react-day-picker"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
 import { format } from "date-fns"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 interface Player {
   id: string
@@ -54,8 +55,10 @@ interface PlayerRating {
   match_id: string
 }
 
+type SortKey = keyof PlayerStats | 'full_name';
+
 export default function PlayersPage() {
-  const { profile } = useAuth()
+  const { profile, sessionKey } = useAuth()
   const { t } = useLanguage()
   const [players, setPlayers] = useState<Player[]>([])
   const [playerStats, setPlayerStats] = useState<{ [key: string]: PlayerStats }>({})
@@ -63,6 +66,8 @@ export default function PlayersPage() {
   const [loading, setLoading] = useState(true)
   const [dateRange, setDateRange] = useState<DateRange | undefined>()
   const isMobile = useIsMobile()
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid')
+  const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null);
 
   const [allMatches, setAllMatches] = useState<Match[]>([])
   const [allParticipants, setAllParticipants] = useState<MatchParticipant[]>([])
@@ -99,8 +104,10 @@ export default function PlayersPage() {
   }, [])
 
   useEffect(() => {
-    fetchAllData()
-  }, [fetchAllData])
+    if (profile) {
+      fetchAllData()
+    }
+  }, [profile, sessionKey, fetchAllData])
 
   useEffect(() => {
     if (loading) return
@@ -154,12 +161,39 @@ export default function PlayersPage() {
     setPlayerStats(stats)
   }, [loading, players, allMatches, allParticipants, allEvents, allRatings, dateRange])
 
-  const filteredPlayers = players.filter(
-    (player) =>
-      player.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      player.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (player.position && player.position.toLowerCase().includes(searchTerm.toLowerCase()))
-  )
+  const sortedAndFilteredPlayers = useMemo(() => {
+    let sortableItems = players.filter(
+      (player) =>
+        player.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        player.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (player.position && player.position.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+
+    if (sortConfig !== null) {
+      sortableItems.sort((a, b) => {
+        const aValue = sortConfig.key === 'full_name' ? a.full_name : playerStats[a.id]?.[sortConfig.key] || 0;
+        const bValue = sortConfig.key === 'full_name' ? b.full_name : playerStats[b.id]?.[sortConfig.key] || 0;
+
+        if (aValue < bValue) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+
+    return sortableItems;
+  }, [players, searchTerm, sortConfig, playerStats]);
+
+  const requestSort = (key: SortKey) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
 
   if (loading && players.length === 0) {
     return (
@@ -228,95 +262,139 @@ export default function PlayersPage() {
               />
             </PopoverContent>
           </Popover>
+          <div className="flex items-center space-x-2">
+            <Button variant={viewMode === 'grid' ? 'default' : 'outline'} onClick={() => setViewMode('grid')}>
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+            <Button variant={viewMode === 'table' ? 'default' : 'outline'} onClick={() => setViewMode('table')}>
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredPlayers.map((player) => {
-            const stats = playerStats[player.id] || {
-              matches_played: 0,
-              goals: 0,
-              assists: 0,
-              average_rating: 0,
-            }
+        {viewMode === 'grid' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {sortedAndFilteredPlayers.map((player) => {
+              const stats = playerStats[player.id] || {
+                matches_played: 0,
+                goals: 0,
+                assists: 0,
+                average_rating: 0,
+              }
 
-            return (
-              <Card key={player.id} className={player.id === profile?.id ? "ring-2 ring-green-500" : ""}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center space-x-3">
-                    <Avatar className="h-12 w-12">
-                      <AvatarFallback className="bg-green-100 text-green-700 font-semibold">
-                        {player.full_name
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")
-                          .toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center space-x-2">
-                        <CardTitle className="text-lg truncate">{player.full_name}</CardTitle>
-                        {player.id === profile?.id && (
-                          <Badge variant="secondary" className="text-xs">
-                            {t("you")}
-                          </Badge>
-                        )}
+              return (
+                <Card key={player.id} className={player.id === profile?.id ? "ring-2 ring-green-500" : ""}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center space-x-3">
+                      <Avatar className="h-12 w-12">
+                        <AvatarFallback className="bg-green-100 text-green-700 font-semibold">
+                          {player.full_name
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")
+                            .toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-2">
+                          <CardTitle className="text-lg truncate">{player.full_name}</CardTitle>
+                          {player.id === profile?.id && (
+                            <Badge variant="secondary" className="text-xs">
+                              {t("you")}
+                            </Badge>
+                          )}
+                        </div>
+                        <CardDescription className="flex items-center space-x-2">
+                          <span>@{player.username}</span>
+                          {player.jersey_number && (
+                            <>
+                              <span>•</span>
+                              <span>#{player.jersey_number}</span>
+                            </>
+                          )}
+                        </CardDescription>
                       </div>
-                      <CardDescription className="flex items-center space-x-2">
-                        <span>@{player.username}</span>
-                        {player.jersey_number && (
-                          <>
-                            <span>•</span>
-                            <span>#{player.jersey_number}</span>
-                          </>
-                        )}
-                      </CardDescription>
                     </div>
-                  </div>
-                </CardHeader>
+                  </CardHeader>
 
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    {player.position && (
-                      <div className="flex items-center space-x-2">
-                        <MapPin className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm">{player.position}</span>
-                      </div>
-                    )}
-                    {player.phone && (
-                      <div className="flex items-center space-x-2">
-                        <Phone className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm">{player.phone}</span>
-                      </div>
-                    )}
-                  </div>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      {player.position && (
+                        <div className="flex items-center space-x-2">
+                          <MapPin className="h-4 w-4 text-gray-400" />
+                          <span className="text-sm">{player.position}</span>
+                        </div>
+                      )}
+                      {player.phone && (
+                        <div className="flex items-center space-x-2">
+                          <Phone className="h-4 w-4 text-gray-400" />
+                          <span className="text-sm">{player.phone}</span>
+                        </div>
+                      )}
+                    </div>
 
-                  <div className="grid grid-cols-2 gap-3 pt-3 border-t">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-green-600">{stats.matches_played}</div>
-                      <div className="text-xs text-gray-500">{t("matches")}</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-blue-600">{stats.goals}</div>
-                      <div className="text-xs text-gray-500">{t("goals")}</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-purple-600">{stats.assists}</div>
-                      <div className="text-xs text-gray-500">{t("assists")}</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-orange-600">
-                        {stats.average_rating > 0 ? stats.average_rating.toFixed(1) : "-"}
+                    <div className="grid grid-cols-2 gap-3 pt-3 border-t">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-green-600">{stats.matches_played}</div>
+                        <div className="text-xs text-gray-500">{t("matches")}</div>
                       </div>
-                      <div className="text-xs text-gray-500">{t("rating")}</div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-blue-600">{stats.goals}</div>
+                        <div className="text-xs text-gray-500">{t("goals")}</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-purple-600">{stats.assists}</div>
+                        <div className="text-xs text-gray-500">{t("assists")}</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-orange-600">
+                          {stats.average_rating > 0 ? stats.average_rating.toFixed(1) : "-"}
+                        </div>
+                        <div className="text-xs text-gray-500">{t("rating")}</div>
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+        ) : (
+          <Card>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead onClick={() => requestSort('full_name')} className="cursor-pointer">
+                    {t("player")} <ArrowUpDown className="h-4 w-4 inline" />
+                  </TableHead>
+                  <TableHead onClick={() => requestSort('matches_played')} className="cursor-pointer">
+                    {t("matchesPlayed")} <ArrowUpDown className="h-4 w-4 inline" />
+                  </TableHead>
+                  <TableHead onClick={() => requestSort('goals')} className="cursor-pointer">
+                    {t("goals")} <ArrowUpDown className="h-4 w-4 inline" />
+                  </TableHead>
+                  <TableHead onClick={() => requestSort('assists')} className="cursor-pointer">
+                    {t("assists")} <ArrowUpDown className="h-4 w-4 inline" />
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sortedAndFilteredPlayers.map((player) => {
+                  const stats = playerStats[player.id] || { matches_played: 0, goals: 0, assists: 0, average_rating: 0 };
+                  return (
+                    <TableRow key={player.id}>
+                      <TableCell>{player.full_name}</TableCell>
+                      <TableCell>{stats.matches_played}</TableCell>
+                      <TableCell>{stats.goals}</TableCell>
+                      <TableCell>{stats.assists}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </Card>
+        )}
 
-        {filteredPlayers.length === 0 && (
+        {sortedAndFilteredPlayers.length === 0 && (
           <Card>
             <CardContent className="text-center py-8">
               <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
