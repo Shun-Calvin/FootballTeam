@@ -80,6 +80,13 @@ export const translations = {
     saveChanges: "Save Changes",
     selectPlayers: "Select players...",
     playersSelected: "{count} selected",
+    selectStatus: "Select a status...",
+    scheduled: "Scheduled",
+    won: "Won",
+    lost: "Lost",
+    draw: "Draw",
+    cancelled: "Cancelled",
+    matchstatus: "Status",
 
     // Match Events
     addEvent: "Add Event",
@@ -404,8 +411,15 @@ export const translations = {
     addVideo: "新增影片",
     participants: "參與者",
     saveChanges: "儲存變更",
-    selectPlayers: "選擇球隊...",
+    selectPlayers: "選擇...",
     playersSelected: "已選擇 {count} 位",
+    selectStatus: "選擇狀態...",
+    scheduled: "已排程",
+    won: "勝利",
+    lost: "落敗",
+    draw: "平手",
+    cancelled: "已取消",
+    matchstatus: "狀態",
 
     // Match Events
     addEvent: "新增事件",

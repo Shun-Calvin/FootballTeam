@@ -624,21 +624,17 @@ export default function MatchesPage() {
                   <Input id="location" value={selectedMatch.location} onChange={(e) => setSelectedMatch({ ...selectedMatch, location: e.target.value })} />
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="status">Status</Label>
+                    <Label htmlFor="status">{t("matchstatus")}</Label>
                     <Select value={selectedMatch.status || 'scheduled'} onValueChange={(value) => setSelectedMatch({ ...selectedMatch, status: value })}>
                         <SelectTrigger>
-                            {/* FIX: Added a placeholder. This is often necessary for the Select component 
-                              to correctly display the value when nested inside a Dialog.
-                              You may need to add "selectStatus" to your translation files.
-                            */}
                             <SelectValue placeholder={t("selectStatus")} />
                         </SelectTrigger>
                         <SelectContent className="z-[9999]">
-                            <SelectItem value="scheduled">{t("scheduled")}</SelectItem>
-                            <SelectItem value="won">{t("won")}</SelectItem>
-                            <SelectItem value="lost">{t("lost")}</SelectItem>
-                            <SelectItem value="draw">{t("draw")}</SelectItem>
-                            <SelectItem value="cancelled">{t("cancelled")}</SelectItem>
+                          <SelectItem value="scheduled" className="text-black dark:text-white">{t("scheduled")}</SelectItem>
+                          <SelectItem value="won" className="text-black dark:text-white">{t("won")}</SelectItem>
+                          <SelectItem value="lost" className="text-black dark:text-white">{t("lost")}</SelectItem>
+                          <SelectItem value="draw" className="text-black dark:text-white">{t("draw")}</SelectItem>
+                          <SelectItem value="cancelled" className="text-black dark:text-white">{t("cancelled")}</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
