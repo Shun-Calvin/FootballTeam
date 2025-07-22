@@ -332,6 +332,20 @@ export default function MatchesPage() {
   const totalPages = Math.ceil(filteredMatches.length / matchesPerPage);
   const paginatedMatches = filteredMatches.slice((currentPage - 1) * matchesPerPage, currentPage * matchesPerPage);
 
+  const getStatusBadgeClass = (status: string | null, isPast: boolean) => {
+    if (isPast && status === 'scheduled') return "bg-gray-500 text-white";
+    switch (status) {
+      case 'won': return "bg-green-500 text-white";
+      case 'draw': return "bg-yellow-500 text-white";
+      case 'lost':
+      case 'cancelled':
+        return "bg-red-500 text-white";
+      case 'scheduled':
+      default:
+        return "bg-blue-500 text-white";
+    }
+  }
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -442,7 +456,7 @@ export default function MatchesPage() {
                       <div>
                         <CardTitle className="flex items-center space-x-2">
                           <span>{t("vs", { opponent_team: match.opponent_team })}</span>
-                          <Badge variant={match.status === "won" ? "default" : match.status === "lost" || match.status === "cancelled" || (isPast && match.status === 'scheduled') ? "destructive" : "secondary"}>{isPast && match.status === 'scheduled' ? t('pendingUpdate') : t(match.status as any)}</Badge>
+                          <Badge className={cn(getStatusBadgeClass(match.status, isPast))}>{isPast && match.status === 'scheduled' ? t('pendingUpdate') : t(match.status as any)}</Badge>
                         </CardTitle>
                         <CardDescription className="flex items-center space-x-4 mt-2">
                           <span className="flex items-center">
@@ -741,9 +755,9 @@ export default function MatchesPage() {
                         <SelectValue placeholder={t("player")} />
                       </SelectTrigger>
                       <SelectContent>
-                        {editableParticipants.map((p) => (
-                          <SelectItem key={p.player_id} value={p.player_id}>
-                            {p.profiles?.full_name}
+                        {allPlayers.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.full_name}
                           </SelectItem>
                         ))}
                       </SelectContent>

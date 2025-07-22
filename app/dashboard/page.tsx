@@ -25,7 +25,7 @@ interface UpcomingMatch {
 }
 
 export default function DashboardPage() {
-  const { profile } = useAuth()
+  const { profile, sessionKey } = useAuth()
   const { t } = useLanguage()
   const [stats, setStats] = useState<DashboardStats>({
     upcomingMatches: 0,
@@ -49,11 +49,12 @@ export default function DashboardPage() {
         supabase
           .from("matches")
           .select("*")
+          .eq("status", "scheduled")
           .gte("match_date", new Date().toISOString())
           .order("match_date", { ascending: true })
           .limit(5),
         supabase.from("profiles").select("*", { count: "exact", head: true }),
-        supabase.from("matches").select("*", { count: "exact", head: true }).eq("status", "completed"),
+        supabase.from("matches").select("*", { count: "exact", head: true }).in("status", ["won", "lost", "draw"]),
         supabase.from("match_participants").select("*", { count: "exact", head: true }).eq("player_id", profile.id).eq("status", "pending"),
       ])
 
@@ -73,8 +74,10 @@ export default function DashboardPage() {
   }, [profile])
   
   useEffect(() => {
-    fetchDashboardData()
-  }, [fetchDashboardData])
+    if (profile) {
+        fetchDashboardData()
+    }
+  }, [profile, sessionKey, fetchDashboardData])
 
   if (loading) {
     return (
@@ -164,7 +167,7 @@ export default function DashboardPage() {
                         {match.match_date.replace("T", " ").substring(0, 16)}
                       </p>
                     </div>
-                    <Badge variant={match.status === "scheduled" ? "default" : "secondary"}>{match.status}</Badge>
+                    <Badge variant={match.status === "scheduled" ? "default" : "secondary"}>{t(match.status as any)}</Badge>
                   </div>
                 ))}
               </div>
