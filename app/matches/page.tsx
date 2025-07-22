@@ -627,9 +627,13 @@ export default function MatchesPage() {
                     <Label htmlFor="status">Status</Label>
                     <Select value={selectedMatch.status || 'scheduled'} onValueChange={(value) => setSelectedMatch({ ...selectedMatch, status: value })}>
                         <SelectTrigger>
-                            <SelectValue />
+                            {/* FIX: Added a placeholder. This is often necessary for the Select component 
+                              to correctly display the value when nested inside a Dialog.
+                              You may need to add "selectStatus" to your translation files.
+                            */}
+                            <SelectValue placeholder={t("selectStatus")} />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="z-[9999]">
                             <SelectItem value="scheduled">{t("scheduled")}</SelectItem>
                             <SelectItem value="won">{t("won")}</SelectItem>
                             <SelectItem value="lost">{t("lost")}</SelectItem>
@@ -679,7 +683,7 @@ export default function MatchesPage() {
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[9999]">
                     <Command>
                       <CommandInput placeholder={t("searchPlayers")} />
                       <CommandEmpty>{t("noPlayersFound")}</CommandEmpty>
@@ -720,7 +724,7 @@ export default function MatchesPage() {
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="z-[9999]">
                         <SelectItem value="accepted">{t("accepted")}</SelectItem>
                         <SelectItem value="declined">{t("declined")}</SelectItem>
                         <SelectItem value="pending">{t("pending")}</SelectItem>
@@ -741,7 +745,7 @@ export default function MatchesPage() {
                       <SelectTrigger>
                         <SelectValue placeholder={t("eventType")} />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="z-[9999]">
                         <SelectItem value="Goal">{t("goal")}</SelectItem>
                         <SelectItem value="Assist">{t("assist")}</SelectItem>
                       </SelectContent>
@@ -754,7 +758,7 @@ export default function MatchesPage() {
                       <SelectTrigger>
                         <SelectValue placeholder={t("player")} />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="z-[9999]">
                         {allPlayers.map((p) => (
                           <SelectItem key={p.id} value={p.id}>
                             {p.full_name}
