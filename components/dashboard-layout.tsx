@@ -1,133 +1,161 @@
-"use client"
+"use client";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useContext, useState } from "react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  LayoutDashboard,
+  Users,
+  Calendar,
+  User,
+  LogOut,
+  Menu,
+  Languages,
+  CalendarCheck,
+} from "lucide-react";
+import { AuthContext } from "@/contexts/auth-context";
+import { LanguageContext, useTranslation } from "@/contexts/language-context";
 
-import type React from "react"
-
-import { useState } from "react"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { useAuth } from "@/contexts/auth-context"
-import { useLanguage } from "@/contexts/language-context"
-import { Button } from "@/components/ui/button"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Home, Calendar, Users, ClipboardList, User, LogOut, Menu, Globe } from "lucide-react"
-import type { Language } from "@/lib/i18n"
-
-const navigation = [
-  { name: "dashboard", href: "/dashboard", icon: Home },
-  { name: "matches", href: "/matches", icon: Calendar },
-  { name: "players", href: "/players", icon: Users },
-  { name: "availability", href: "/availability", icon: ClipboardList },
-  { name: "profile", href: "/profile", icon: User },
-]
-
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const pathname = usePathname()
-  const { signOut, profile } = useAuth()
-  const { language, setLanguage, t } = useLanguage()
-
-  const handleSignOut = async () => {
-    await signOut()
-  }
-
-  const Sidebar = ({ mobile = false }: { mobile?: boolean }) => (
-    <div className={`flex flex-col h-full ${mobile ? "p-4" : "p-6"}`}>
-      <div className="flex items-center space-x-2 mb-8">
-        <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
-          <span className="text-white font-bold text-sm">FC</span>
-        </div>
-        <span className="font-bold text-lg">Football Team</span>
-      </div>
-
-      <nav className="flex-1 space-y-2">
-        {navigation.map((item) => {
-          const Icon = item.icon
-          const isActive = pathname === item.href
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
-                isActive ? "bg-green-100 text-green-700" : "text-gray-600 hover:bg-gray-100"
-              }`}
-              onClick={() => mobile && setSidebarOpen(false)}
-            >
-              <Icon className="h-5 w-5" />
-              <span>{t(item.name as any)}</span>
-            </Link>
-          )
-        })}
-      </nav>
-
-      <div className="border-t pt-4 space-y-4">
-        <div className="flex items-center space-x-2">
-          <Globe className="h-4 w-4" />
-          <Select value={language} onValueChange={(value: Language) => setLanguage(value)}>
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="en">English</SelectItem>
-              <SelectItem value="zh">中文</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="flex items-center space-x-3 px-3 py-2">
-          <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-            <span className="text-gray-600 font-medium text-sm">{profile?.full_name?.charAt(0) || "U"}</span>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-900 truncate">{profile?.full_name}</p>
-            <p className="text-xs text-gray-500 truncate">#{profile?.jersey_number || "N/A"}</p>
-          </div>
-        </div>
-
-        <Button
-          variant="ghost"
-          className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
-          onClick={handleSignOut}
-        >
-          <LogOut className="h-4 w-4 mr-3" />
-          {t("logout")}
-        </Button>
-      </div>
-    </div>
-  )
+function SidebarLink({
+  href,
+  children,
+}: {
+  href: string;
+  children: React.ReactNode;
+}) {
+  const pathname = usePathname();
+  const isActive = pathname === href;
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Desktop Sidebar */}
-      <div className="hidden lg:flex lg:w-64 lg:flex-col lg:bg-white lg:border-r">
-        <Sidebar />
+    <Link
+      href={href}
+      className={cn(
+        "flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50",
+        { "bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-50": isActive }
+      )}
+    >
+      {children}
+    </Link>
+  );
+}
+
+export function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const { logout } = useContext(AuthContext);
+  const { setLanguage } = useContext(LanguageContext);
+  const t = useTranslation();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const sidebarLinks = (
+    <>
+      <SidebarLink href="/dashboard">
+        <LayoutDashboard className="h-5 w-5" />
+        {t.dashboard}
+      </SidebarLink>
+      <SidebarLink href="/players">
+        <Users className="h-5 w-5" />
+        {t.players}
+      </SidebarLink>
+      <SidebarLink href="/matches">
+        <Calendar className="h-5 w-5" />
+        {t.matches}
+      </SidebarLink>
+      <SidebarLink href="/availability">
+        <Calendar className="h-5 w-5" />
+        {t.availability}
+      </SidebarLink>
+      <SidebarLink href="/booking">
+        <CalendarCheck className="h-5 w-5" />
+        {t.booking}
+      </SidebarLink>
+    </>
+  );
+
+  return (
+    <div className="grid min-h-screen w-full lg:grid-cols-[280px_1fr]">
+      <div className="hidden border-r bg-gray-100/40 lg:block dark:bg-gray-800/40">
+        <div className="flex h-full max-h-screen flex-col gap-2">
+          <div className="flex h-[60px] items-center border-b px-6">
+            <Link className="flex items-center gap-2 font-semibold" href="/">
+              <span className="">Team Manager</span>
+            </Link>
+          </div>
+          <div className="flex-1 overflow-auto py-2">
+            <nav className="grid items-start px-4 text-sm font-medium">
+              {sidebarLinks}
+            </nav>
+          </div>
+        </div>
       </div>
-
-      {/* Mobile Sidebar */}
-      <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-        <SheetContent side="left" className="p-0 w-64">
-          <Sidebar mobile />
-        </SheetContent>
-      </Sheet>
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Mobile Header */}
-        <div className="lg:hidden bg-white border-b px-4 py-3 flex items-center justify-between">
-          <Sheet>
+      <div className="flex flex-col">
+        <header className="flex h-14 lg:h-[60px] items-center gap-4 border-b bg-gray-100/40 px-6 dark:bg-gray-800/40">
+          <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(true)}>
+              <Button
+                variant="outline"
+                size="icon"
+                className="shrink-0 lg:hidden"
+              >
                 <Menu className="h-5 w-5" />
+                <span className="sr-only">Toggle navigation menu</span>
               </Button>
             </SheetTrigger>
+            <SheetContent side="left" className="flex flex-col">
+              <nav className="grid gap-2 text-lg font-medium">
+                <Link
+                  href="#"
+                  className="flex items-center gap-2 text-lg font-semibold mb-4"
+                >
+                  Team Manager
+                </Link>
+                {sidebarLinks}
+              </nav>
+            </SheetContent>
           </Sheet>
-          <span className="font-semibold">Football Team</span>
-          <div className="w-8" /> {/* Spacer */}
-        </div>
-
-        {/* Page Content */}
-        <main className="flex-1 overflow-auto">{children}</main>
+          <div className="w-full flex-1">
+            {/* Can add a search bar here if needed */}
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <Languages className="h-5 w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setLanguage("en")}>
+                {t.english}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setLanguage("tc")}>
+                {t.traditionalChinese}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="rounded-full">
+                <User className="h-5 w-5" />
+                <span className="sr-only">Toggle user menu</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <Link href="/profile">
+                <DropdownMenuItem>{t.profile}</DropdownMenuItem>
+              </Link>
+              <DropdownMenuItem onClick={logout}>{t.logout}</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </header>
+        <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6">
+          {children}
+        </main>
       </div>
     </div>
-  )
+  );
 }
