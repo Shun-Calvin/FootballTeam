@@ -1,9 +1,9 @@
 import { createClient } from "@supabase/supabase-js"
 
-/* const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL! */
-const supabaseUrl = "https://phhrlvkbxagokuueoclx.supabase.co"
-/* const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY! */
-const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBoaHJsdmtieGFnb2t1dWVvY2x4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI5ODY0MTcsImV4cCI6MjA2ODU2MjQxN30.qpPJkMa9TpTVdzHa2HrERxz7cuHiWefdIQrx_jzJkJQ"
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+/* const supabaseUrl = "https://phhrlvkbxagokuueoclx.supabase.co" */
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+/* const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBoaHJsdmtieGFnb2t1dWVvY2x4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI5ODY0MTcsImV4cCI6MjA2ODU2MjQxN30.qpPJkMa9TpTVdzHa2HrERxz7cuHiWefdIQrx_jzJkJQ" */
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
