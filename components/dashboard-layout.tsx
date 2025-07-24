@@ -2,15 +2,15 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { useLanguage } from "@/contexts/language-context"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Home, Calendar, Users, ClipboardList, User, LogOut, Menu, Globe } from "lucide-react"
+import { Home, Calendar, Users, ClipboardList, User, LogOut, Menu, Globe, UserPlus, Bookmark } from "lucide-react"
 import type { Language } from "@/lib/i18n"
 
 const navigation = [
@@ -18,17 +18,27 @@ const navigation = [
   { name: "matches", href: "/matches", icon: Calendar },
   { name: "players", href: "/players", icon: Users },
   { name: "availability", href: "/availability", icon: ClipboardList },
+  { name: "booking", href: "/booking", icon: Bookmark },
   { name: "profile", href: "/profile", icon: User },
+  { name: "createUser", href: "/create-user", icon: UserPlus },
 ]
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
-  const { signOut, profile } = useAuth()
+  const { signOut, profile, loading } = useAuth()
   const { language, setLanguage, t } = useLanguage()
+  const router = useRouter()
+  
+  useEffect(() => {
+    if (!loading && !profile) {
+      router.push("/login")
+    }
+  }, [profile, loading, router])
 
   const handleSignOut = async () => {
     await signOut()
+    router.push("/login")
   }
 
   const Sidebar = ({ mobile = false }: { mobile?: boolean }) => (
@@ -37,7 +47,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
           <span className="text-white font-bold text-sm">FC</span>
         </div>
-        <span className="font-bold text-lg">Football Team</span>
+        <span className="font-bold text-lg">{t("footballTeam")}</span>
       </div>
 
       <nav className="flex-1 space-y-2">
@@ -68,8 +78,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="en">English</SelectItem>
-              <SelectItem value="zh">中文</SelectItem>
+              <SelectItem value="en">{t("english")}</SelectItem>
+              <SelectItem value="zh-TW">{t("traditionalChinese")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -96,6 +106,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </div>
   )
 
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Desktop Sidebar */}
@@ -121,7 +139,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </Button>
             </SheetTrigger>
           </Sheet>
-          <span className="font-semibold">Football Team</span>
+          <span className="font-semibold">{t("footballTeam")}</span>
           <div className="w-8" /> {/* Spacer */}
         </div>
 
